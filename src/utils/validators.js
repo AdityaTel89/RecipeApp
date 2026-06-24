@@ -1,10 +1,6 @@
 import { VALIDATION, MESSAGES } from '../config/constants';
 
-/**
- * Validates raw ingredient input from the user.
- * Returns { isValid, message } — never throws.
- * Pure function: same input always gives same output.
- */
+
 export function validateIngredients(rawInput) {
   const trimmed = rawInput?.trim() ?? '';
 
@@ -38,11 +34,7 @@ export function validateIngredients(rawInput) {
   return { isValid: true, message: null };
 }
 
-/**
- * Cleans and normalises the raw input string before
- * sending it to the API. Removes extra spaces and
- * standardises comma separation.
- */
+
 export function sanitiseIngredients(rawInput) {
   return rawInput
     .split(',')

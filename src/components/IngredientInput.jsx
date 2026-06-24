@@ -1,56 +1,289 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Animated,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, VALIDATION, FONTS, QUICK_ADD_INGREDIENTS } from '../config/constants';
+import { IngredientTag } from './IngredientTag';
 
 /**
- * IngredientInput — purely a UI component.
- * Owns only the local text state (what's typed right now).
- * Everything else — loading state, submission — comes from props.
+ * Parse comma-separated input into ingredient tokens.
+ * Deduplicates and filters tokens under MIN_INGREDIENT_LENGTH.
+ */
+function parseIngredients(text) {
+  const seen = new Set();
+  return text
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => item.length >= VALIDATION.MIN_INGREDIENT_LENGTH)
+    .filter(item => {
+      const lower = item.toLowerCase();
+      if (seen.has(lower)) return false;
+      seen.add(lower);
+      return true;
+    });
+}
+
+/**
+ * IngredientInput — text field with live tag parsing, focus animation,
+ * ingredient counter, inline hints, debounced parsing, and shake animation.
+ * PRD §6.2, §7.1, §7.3, §8.1, §13
  *
  * Props:
- *   onSubmit(value: string) — called when user taps the button
- *   isLoading: boolean      — disables button while API is in flight
- *   error: string | null    — displays validation or API error
+ *   onIngredientsChange(ingredients: string[]) — called on every parse
+ *   isLoading: boolean
+ *   shake: boolean — when toggled to true, triggers the shake animation
+ *   ingredients: string[] — controlled ingredients from parent
+ *   setIngredients: function — state setter from parent
  */
-export function IngredientInput({ onSubmit, isLoading, error }) {
-  const [inputValue, setInputValue] = useState('');
+export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredients, setIngredients }) {
+  const [inputValue, setInputValue]     = useState('');
+  const [isFocused, setIsFocused]       = useState(false);
+  const [localIngredients, setLocalIngredients] = useState([]);
 
-  function handlePress() {
-    onSubmit(inputValue);
+  const activeIngredients = ingredients || localIngredients;
+  const activeSetIngredients = setIngredients || setLocalIngredients;
+
+  const borderColor   = useRef(new Animated.Value(0)).current;
+  const focusLabelOp  = useRef(new Animated.Value(0)).current;  // §7.1 focus label
+  const shakeAnim     = useRef(new Animated.Value(0)).current;  // §8.1 shake
+  const debounceTimer = useRef(null);                           // §13 debounce
+
+  // Sync text input with parent reset
+  useEffect(() => {
+    if (activeIngredients.length === 0) {
+      setInputValue('');
+    }
+  }, [activeIngredients]);
+
+  // ── §7.1 — Focus-triggered instruction label ────────────────────────────────
+  function handleFocus() {
+    setIsFocused(true);
+    Animated.parallel([
+      Animated.timing(borderColor, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(focusLabelOp, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }
+
+  // ── §7.1 — Focus-triggered instruction label ──
+  function handleBlur() {
+    setIsFocused(false);
+    Animated.parallel([
+      Animated.timing(borderColor, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(focusLabelOp, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }
+
+  // ── §8.1 — Shake animation triggered by parent ──────────────────────────────
+  useEffect(() => {
+    if (!shake) return;
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 8,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6,  duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 3,  duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,  duration: 40, useNativeDriver: true }),
+    ]).start();
+  }, [shake, shakeAnim]);
+
+  const animatedBorderColor = borderColor.interpolate({
+    inputRange: [0, 1],
+    outputRange: [COLORS.borderSubtle, COLORS.accentSecondary],
+  });
+
+  // ── §13 — 100ms debounced parsing ───────────────────────────────────────────
+  const handleChange = useCallback((text) => {
+    setInputValue(text);
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    debounceTimer.current = setTimeout(() => {
+      const parsed = parseIngredients(text);
+      const capped = parsed.slice(0, VALIDATION.MAX_INGREDIENTS);
+      activeSetIngredients(capped);
+      onIngredientsChange(capped);
+    }, 100);
+  }, [onIngredientsChange, activeSetIngredients]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
+  function removeIngredient(label) {
+    const updated = activeIngredients.filter(i => i !== label);
+    const newText = updated.join(', ') + (updated.length > 0 ? ', ' : '');
+    setInputValue(newText);
+    activeSetIngredients(updated);
+    onIngredientsChange(updated);
+  }
+
+  function toggleIngredient(item) {
+    const isAdded = activeIngredients.includes(item);
+    let updated;
+    if (isAdded) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      updated = activeIngredients.filter(i => i !== item);
+    } else {
+      if (activeIngredients.length >= VALIDATION.MAX_INGREDIENTS) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      updated = [...activeIngredients, item];
+    }
+    const newText = updated.join(', ') + (updated.length > 0 ? ', ' : '');
+    setInputValue(newText);
+    activeSetIngredients(updated);
+    onIngredientsChange(updated);
+  }
+
+  const count      = activeIngredients.length;
+  const hasNoComma = inputValue.trim().length > 2 && !inputValue.includes(',');
+  const isAtMax    = count >= VALIDATION.MAX_INGREDIENTS;
+
+  // Counter color
+  let counterColor = COLORS.textSecondary;
+  if (count >= 8) counterColor = COLORS.accentPrimary;
+  if (count >= VALIDATION.MAX_INGREDIENTS) counterColor = COLORS.error;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>What ingredients do you have?</Text>
-      <Text style={styles.hint}>Separate with commas, e.g. chicken, garlic, soy sauce</Text>
+      {/* Section label */}
+      <Text style={styles.sectionLabel}>WHAT'S IN YOUR KITCHEN?</Text>
 
-      <TextInput
-        style={styles.input}
-        value={inputValue}
-        onChangeText={setInputValue}
-        placeholder="chicken, broccoli, soy sauce, rice"
-        placeholderTextColor="#aaa"
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!isLoading}
-        returnKeyType="done"
-        onSubmitEditing={handlePress}
-      />
+      {/* §7.1 — Focus-triggered instruction label (fades in when keyboard opens) */}
+      <Animated.Text style={[styles.focusHint, { opacity: focusLabelOp }]}>
+        Separate ingredients with commas
+      </Animated.Text>
 
-      {/* Error message sits between input and button */}
-      {error ? (
-        <Text style={styles.errorText}>{error}</Text>
+      {/* Animated border input with shake */}
+      <Animated.View
+        style={[
+          styles.inputWrapper,
+          {
+            borderColor: animatedBorderColor,
+            transform: [{ translateX: shakeAnim }],
+          },
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          value={inputValue}
+          onChangeText={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder="e.g. eggs, onion, garlic, tomatoes"
+          placeholderTextColor={COLORS.textSecondary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isLoading}
+          multiline
+          returnKeyType="done"
+          blurOnSubmit
+          accessibilityLabel="Ingredient input field"
+        />
+
+        {/* Ingredient counter */}
+        <Text style={[styles.counter, { color: counterColor }]}>
+          {count} / {VALIDATION.MAX_INGREDIENTS} ingredients
+        </Text>
+      </Animated.View>
+
+      {/* Inline hint — no-comma warning */}
+      {hasNoComma && !isLoading ? (
+        <Text style={styles.hint}>
+          Separate ingredients with commas — e.g. eggs, butter, flour
+        </Text>
       ) : null}
 
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handlePress}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>
-          {isLoading ? 'Finding recipe...' : 'Generate Recipe'}
+      {isAtMax ? (
+        <Text style={styles.hintWarn}>
+          That's plenty! Using the first {VALIDATION.MAX_INGREDIENTS} ingredients.
         </Text>
-      </TouchableOpacity>
+      ) : null}
+
+      {/* Quick Add Pantry Staples */}
+      {!isLoading ? (
+        <View style={styles.quickAddSection}>
+          <Text style={styles.quickAddLabel}>QUICK ADD PANTRY STAPLES</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickAddScroll}
+          >
+            {QUICK_ADD_INGREDIENTS.map(item => {
+              const isAdded = activeIngredients.includes(item);
+              return (
+                <Pressable
+                  key={item}
+                  onPress={() => toggleIngredient(item)}
+                  style={[
+                    styles.quickAddPill,
+                    isAdded && styles.quickAddPillActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${isAdded ? 'Remove' : 'Add'} ${item}`}
+                >
+                  <Text
+                    style={[
+                      styles.quickAddText,
+                      isAdded && styles.quickAddTextActive,
+                    ]}
+                  >
+                    {isAdded ? '✓ ' : '+ '}
+                    {item}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Detected ingredient tags */}
+      {activeIngredients.length > 0 ? (
+        <View
+          style={styles.tagsSection}
+          accessibilityLabel={`Detected ingredients list. ${count} item${count === 1 ? '' : 's'} added.`}
+        >
+          <Text style={styles.tagsLabel}>DETECTED INGREDIENTS:</Text>
+          <View style={styles.tagsRow}>
+            {activeIngredients.map(item => (
+              <IngredientTag
+                key={item}
+                label={item}
+                onRemove={() => removeIngredient(item)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -58,48 +291,116 @@ export function IngredientInput({ onSubmit, isLoading, error }) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    gap: SPACING.sm,
   },
-  label: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 6,
+  sectionLabel: {
+    fontSize: TYPOGRAPHY.microSize,
+    fontWeight: '700',
+    fontFamily: FONTS.interBold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.xs,
   },
-  hint: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 14,
+  // §7.1 — focus-triggered instruction label
+  focusHint: {
+    fontSize: TYPOGRAPHY.microSize,
+    color: COLORS.accentSecondary,
+    fontWeight: '500',
+    fontFamily: FONTS.interMedium,
+    fontStyle: 'italic',
+    marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+  },
+  inputWrapper: {
+    borderWidth: 1.5,
+    borderRadius: RADIUS.input,
+    backgroundColor: COLORS.bgCard,
+    overflow: 'hidden',
   },
   input: {
+    padding: SPACING.base,
+    fontSize: TYPOGRAPHY.bodySize,
+    color: COLORS.textPrimary,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    fontWeight: '400',
+    fontFamily: FONTS.interRegular,
+  },
+  counter: {
+    fontSize: TYPOGRAPHY.microSize,
+    fontWeight: '500',
+    fontFamily: FONTS.interMedium,
+    textAlign: 'right',
+    paddingRight: SPACING.base,
+    paddingBottom: SPACING.sm,
+  },
+  hint: {
+    fontSize: TYPOGRAPHY.microSize,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    paddingHorizontal: SPACING.xs,
+    fontFamily: FONTS.interRegular,
+  },
+  hintWarn: {
+    fontSize: TYPOGRAPHY.microSize,
+    color: COLORS.accentPrimary,
+    fontWeight: '500',
+    fontFamily: FONTS.interMedium,
+    paddingHorizontal: SPACING.xs,
+  },
+  quickAddSection: {
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  quickAddLabel: {
+    fontSize: TYPOGRAPHY.microSize,
+    fontWeight: '700',
+    fontFamily: FONTS.interBold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  quickAddScroll: {
+    paddingVertical: SPACING.xs,
+    gap: SPACING.sm,
+  },
+  quickAddPill: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.tag,
+    backgroundColor: COLORS.bgCard,
     borderWidth: 1.5,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: '#1a1a1a',
-    backgroundColor: '#fafafa',
-    marginBottom: 10,
+    borderColor: COLORS.borderSubtle,
+    marginRight: SPACING.xs,
   },
-  errorText: {
-    fontSize: 13,
-    color: '#e05252',
-    marginBottom: 10,
-    paddingHorizontal: 2,
+  quickAddPillActive: {
+    backgroundColor: COLORS.tagBg,
+    borderColor: COLORS.accentSecondary,
   },
-  button: {
-    backgroundColor: '#2d6a4f',
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 4,
+  quickAddText: {
+    fontSize: TYPOGRAPHY.tagSize,
+    fontWeight: '500',
+    fontFamily: FONTS.interMedium,
+    color: COLORS.textSecondary,
   },
-  buttonDisabled: {
-    backgroundColor: '#a0b8af',
+  quickAddTextActive: {
+    color: COLORS.textPrimary,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+  tagsSection: {
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  tagsLabel: {
+    fontSize: TYPOGRAPHY.microSize,
+    fontWeight: '700',
+    fontFamily: FONTS.interBold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
 });

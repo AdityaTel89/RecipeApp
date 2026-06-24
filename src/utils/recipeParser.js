@@ -1,76 +1,63 @@
 /**
- * Parses raw Gemini text into a clean, predictable recipe object.
- * The UI never touches raw AI text — it always gets this shape:
- * { title: string, ingredients: string[], steps: string[] }
+ * Parses and validates the structured JSON recipe returned by Groq.
  *
- * Gemini is prompted to follow a strict format but AI responses
- * can drift. Each parser function handles that gracefully.
+ * Expected shape (PRD §9.3):
+ * {
+ *   title: string,
+ *   cook_time: string,
+ *   servings: string,
+ *   difficulty: string,
+ *   ingredients: [{ quantity, unit, name }],
+ *   steps: [{ step_number, title, instruction }],
+ *   tips: string
+ * }
+ *
+ * Handles graceful fallbacks if fields are missing or the AI
+ * returns the non-food error sentinel.
  */
-
-/**
- * Extracts the recipe title from raw text.
- * Looks for "TITLE:" prefix, falls back to first non-empty line.
- */
-function extractTitle(rawText) {
-  const titleMatch = rawText.match(/TITLE:\s*(.+)/i);
-  if (titleMatch?.[1]) {
-    return titleMatch[1].trim();
+export function parseRecipeResponse(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
   }
 
-  // Fallback: use the first non-empty line as the title
-  const firstLine = rawText.split('\n').find(line => line.trim());
-  return firstLine?.trim() ?? 'Recipe';
-}
-
-/**
- * Extracts the ingredients list.
- * Finds everything between "INGREDIENTS:" and "STEPS:" sections.
- * Each line starting with "-" or "*" is treated as one ingredient.
- */
-function extractIngredients(rawText) {
-  const sectionMatch = rawText.match(
-    /INGREDIENTS:\s*([\s\S]*?)(?=STEPS:|$)/i
-  );
-
-  if (!sectionMatch?.[1]) return [];
-
-  return sectionMatch[1]
-    .split('\n')
-    .map(line => line.replace(/^[-*•]\s*/, '').trim())
-    .filter(Boolean);
-}
-
-/**
- * Extracts the step-by-step instructions.
- * Finds everything after "STEPS:" and cleans numbering.
- */
-function extractSteps(rawText) {
-  const sectionMatch = rawText.match(/STEPS:\s*([\s\S]*?)$/i);
-
-  if (!sectionMatch?.[1]) return [];
-
-  return sectionMatch[1]
-    .split('\n')
-    .map(line => line.replace(/^\d+\.\s*/, '').trim())
-    .filter(Boolean);
-}
-
-/**
- * Main parser — orchestrates all three extractors.
- * Returns a safe fallback object if parsing fails entirely,
- * so the UI always has something to render.
- *
- * @param {string} rawText - raw response text from Gemini
- * @returns {{ title: string, ingredients: string[], steps: string[] }}
- */
-export function parseRecipeResponse(rawText) {
-  if (!rawText || typeof rawText !== 'string') {
-    return { title: 'Recipe', ingredients: [], steps: [] };
+  // AI returned the non-food sentinel
+  if (raw.error) {
+    throw new Error(raw.error);
   }
 
-  const title       = extractTitle(rawText);
-  const ingredients = extractIngredients(rawText);
-  const steps       = extractSteps(rawText);
+  // Normalise ingredients — accept both objects and plain strings
+  const ingredients = Array.isArray(raw.ingredients)
+    ? raw.ingredients.map(item => {
+        if (typeof item === 'string') return item;
+        return {
+          quantity: item.quantity ?? '',
+          unit:     item.unit     ?? '',
+          name:     item.name     ?? item.toString(),
+        };
+      })
+    : [];
 
-  return { title, ingredients, steps };
+  // Normalise steps — accept both objects and plain strings
+  const steps = Array.isArray(raw.steps)
+    ? raw.steps.map((step, i) => {
+        if (typeof step === 'string') {
+          return { step_number: i + 1, title: '', instruction: step };
+        }
+        return {
+          step_number: step.step_number ?? i + 1,
+          title:       step.title       ?? '',
+          instruction: step.instruction ?? '',
+        };
+      })
+    : [];
+
+  return {
+    title:       raw.title      ?? 'Recipe',
+    cook_time:   raw.cook_time  ?? null,
+    servings:    raw.servings   ?? null,
+    difficulty:  raw.difficulty ?? null,
+    ingredients,
+    steps,
+    tips:        raw.tips ?? null,
+  };
 }

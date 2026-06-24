@@ -1,53 +1,64 @@
-import { GROQ, MESSAGES } from '../config/constants';
+import { GROQ, MESSAGES, API_TIMEOUT_MS } from '../config/constants';
 
-// API key pulled from environment — never hardcoded
 const API_KEY = process.env.EXPO_PUBLIC_GROQ_KEY;
 
-/**
- * Builds the chat prompt sent to Groq.
- * Keeping it here means you can iterate on prompt
- * quality without touching any other file.
- */
-function buildMessages(ingredients) {
-  return [
-    {
-      role: 'system',
-      content:
-        'You are a helpful home cook. When given a list of ingredients, you generate one simple, practical, easy-to-follow recipe using ONLY those ingredients.',
-    },
-    {
-      role: 'user',
-      content: `Generate one simple recipe using ONLY these ingredients: ${ingredients}.
+// ─── System Prompt (PRD §10.1) ───────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are a professional chef and recipe writer. Your job is to create clear, detailed, easy-to-follow recipes based on a list of ingredients a home cook has available.
 
-Respond in this exact format:
-TITLE: [recipe name]
-INGREDIENTS:
-- [ingredient and amount]
-- [ingredient and amount]
-STEPS:
-1. [step]
-2. [step]
+STRICT RULES:
+1. Only use the ingredients provided. You may add water, salt, pepper, and basic cooking oil without being asked — these are pantry staples.
+2. Return ONLY valid JSON. No markdown, no preamble, no explanation outside the JSON object.
+3. Write a minimum of 8 steps and a maximum of 12 steps.
+4. Each step must be 2–4 sentences long. Explain the "why" behind each action — not just "do this" but "do this because...". This helps beginner cooks understand the process.
+5. Include a clear step title for each step (e.g., "Season the chicken").
+6. Include realistic quantities for each ingredient, not vague amounts.
+7. The recipe must be realistically cookable in a standard home kitchen.
+8. If the ingredients cannot form a real recipe (e.g., non-food items), return: { "error": "These don't appear to be food ingredients." }
+9. Always include a "tips" field with one useful cooking tip.
+10. Estimate cook_time honestly. Do not say "10 minutes" if it takes 30.`;
 
-Keep it practical. No extra commentary outside this format.`,
-    },
-  ];
+// ─── User Prompt Builder (PRD §10.2) ─────────────────────────────────────────
+function buildUserPrompt(ingredients) {
+  const list = Array.isArray(ingredients) ? ingredients.join(', ') : ingredients;
+  return `Create a complete recipe using these ingredients: ${list}.
+
+Follow this JSON schema exactly:
+{
+  "title": string,
+  "cook_time": string,
+  "servings": string,
+  "difficulty": "Easy" | "Medium" | "Hard",
+  "ingredients": [{ "quantity": string, "unit": string, "name": string }],
+  "steps": [{ "step_number": number, "title": string, "instruction": string }],
+  "tips": string
+}`;
 }
 
 /**
- * Calls the Groq API (OpenAI-compatible) and returns the raw text response.
- * Throws a typed error so the caller can handle it meaningfully.
+ * Calls the Groq API with a structured JSON prompt.
+ * Uses AbortController for a 15-second timeout.
  *
- * @param {string} ingredients - cleaned, comma-separated ingredients
- * @returns {Promise<string>} raw text from Groq
+ * @param {string|string[]} ingredients — cleaned ingredient list
+ * @returns {Promise<object>} parsed recipe JSON
  */
 export async function fetchRecipeFromGroq(ingredients) {
+  if (!API_KEY) {
+    throw new Error('Groq API key not configured. Check your .env file.');
+  }
+
   const endpoint = `${GROQ.API_URL}/chat/completions`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
   const body = {
-    model:       GROQ.MODEL,
-    messages:    buildMessages(ingredients),
-    max_tokens:  GROQ.MAX_TOKENS,
-    temperature: GROQ.TEMPERATURE,
+    model:           GROQ.MODEL,
+    temperature:     GROQ.TEMPERATURE,
+    max_tokens:      GROQ.MAX_TOKENS,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: buildUserPrompt(ingredients) },
+    ],
   };
 
   let response;
@@ -55,38 +66,46 @@ export async function fetchRecipeFromGroq(ingredients) {
   try {
     response = await fetch(endpoint, {
       method:  'POST',
+      signal:  controller.signal,
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(body),
     });
-  } catch {
-    // fetch itself threw — almost always a network issue
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error(MESSAGES.TIMEOUT);
+    }
     throw new Error(MESSAGES.NETWORK_ERROR);
   }
 
+  clearTimeout(timeoutId);
+
   if (!response.ok) {
-    if (response.status === 429) {
-      // Rate limit or quota exhausted
-      throw new Error(MESSAGES.RATE_LIMIT);
-    }
+    if (response.status === 429) throw new Error(MESSAGES.RATE_LIMIT);
     if (response.status === 401 || response.status === 403) {
-      // Bad or missing API key
       throw new Error('Invalid API key. Please check your configuration.');
     }
-    // All other HTTP errors (500, etc.)
+    if (response.status >= 500) throw new Error(MESSAGES.API_ERROR);
     throw new Error(MESSAGES.API_ERROR);
   }
 
   const data = await response.json();
+  const raw = data?.choices?.[0]?.message?.content;
 
-  // Safely dig into Groq's OpenAI-compatible response structure
-  const text = data?.choices?.[0]?.message?.content;
-
-  if (!text) {
-    throw new Error(MESSAGES.API_ERROR);
+  if (!raw) {
+    throw new Error(MESSAGES.EMPTY_RESPONSE);
   }
 
-  return text;
+  // Parse the JSON content returned by Groq
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Couldn't read the recipe. Tap to try again.");
+  }
+
+  return parsed;
 }
