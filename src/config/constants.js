@@ -1,4 +1,4 @@
-// ─── Color Tokens (PRD §5.1) ────────────────────────────────────────────────
+// Color Tokens
 export const COLORS = {
   bgBase:          '#FFFAF4',   // Screen background — warm off-white
   bgCard:          '#FFFFFF',   // Recipe card surface
@@ -18,7 +18,7 @@ export const COLORS = {
   skeletonHighlight: '#F7F0E8', // Skeleton shimmer peak
 };
 
-// ─── Typography Scale (PRD §5.2) ────────────────────────────────────────────
+// Typography Scale
 export const TYPOGRAPHY = {
   heroSize:     28,
   recipeTitleSize: 22,
@@ -32,7 +32,7 @@ export const TYPOGRAPHY = {
   smallSize:    11,
 };
 
-// ─── Spacing Scale — 8pt grid (PRD §5.3) ────────────────────────────────────
+// Spacing Scale — 8pt grid
 export const SPACING = {
   xs:   4,
   sm:   8,
@@ -45,7 +45,7 @@ export const SPACING = {
   huge: 48,
 };
 
-// ─── Border Radius (PRD §5.4) ────────────────────────────────────────────────
+// Border Radius
 export const RADIUS = {
   button:     14,
   input:      14,
@@ -56,7 +56,7 @@ export const RADIUS = {
   tip:        10,
 };
 
-// ─── Groq model configuration (OpenAI-compatible API) ───────────────────────
+// Groq model configuration (OpenAI-compatible API)
 export const GROQ = {
   MODEL:       'llama-3.3-70b-versatile',
   API_URL:     'https://api.groq.com/openai/v1',
@@ -64,7 +64,16 @@ export const GROQ = {
   TEMPERATURE: 0.7,
 };
 
-// ─── Input Validation Rules ──────────────────────────────────────────────────
+// Gemini model configuration
+export const GEMINI = {
+  MODEL:       'gemini-1.5-flash',
+  API_URL:     'https://generativelanguage.googleapis.com/v1beta/models',
+  MAX_TOKENS:  1500,
+  TEMPERATURE: 0.7,
+};
+
+
+// Input Validation Rules
 export const VALIDATION = {
   MIN_INGREDIENTS:       2,
   MAX_INGREDIENTS:       10,
@@ -72,7 +81,7 @@ export const VALIDATION = {
   MIN_INGREDIENT_LENGTH: 2,
 };
 
-// ─── User-facing Messages ────────────────────────────────────────────────────
+// User-facing Messages
 export const MESSAGES = {
   EMPTY_INPUT:        'Enter at least 2 ingredients to start.',
   TOO_FEW:            'Add at least 2 ingredients for a recipe.',
@@ -90,7 +99,7 @@ export const MESSAGES = {
   EMPTY_RESPONSE:     'No recipe was generated. Try different ingredients.',
 };
 
-// ─── Loading Messages (PRD §6.4 Option B) ────────────────────────────────────
+// Loading Messages
 export const LOADING_MESSAGES = [
   'Checking your pantry...',
   'Finding the perfect match...',
@@ -98,13 +107,13 @@ export const LOADING_MESSAGES = [
   'Almost ready to cook!',
 ];
 
-// ─── Client-side cooldown between requests ──────────────────────────────────
+// Client-side cooldown between requests
 export const REQUEST_COOLDOWN_MS = 5000;
 
-// ─── API timeout ─────────────────────────────────────────────────────────────
+// API timeout
 export const API_TIMEOUT_MS = 15000;
 
-// ─── Font Configuration (PRD §5.2) ───────────────────────────────────────────
+// Font Configuration
 export const FONTS = {
   playfairBold: 'PlayfairDisplay_700Bold',
   playfairSemiBold: 'PlayfairDisplay_600SemiBold',
@@ -114,7 +123,7 @@ export const FONTS = {
   interBold: 'Inter_700Bold',
 };
 
-// ─── Quick Add Pantry Ingredients ──────────────────────────────────────────
+// Quick Add Pantry Ingredients
 export const QUICK_ADD_INGREDIENTS = [
   'chicken',
   'eggs',
@@ -127,7 +136,7 @@ export const QUICK_ADD_INGREDIENTS = [
   'cheese',
 ];
 
-// ─── Instant Suggested Recipes ──────────────────────────────────────────────
+// Instant Suggested Recipes
 export const SUGGESTED_RECIPES = [
   {
     title: "Quick Tomato Pasta",

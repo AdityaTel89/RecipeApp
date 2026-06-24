@@ -1,7 +1,25 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchRecipeFromGroq } from '../api/groq';
+import { fetchRecipeFromGemini } from '../api/gemini';
 import { parseRecipeResponse } from '../utils/recipeParser';
 import { MESSAGES, REQUEST_COOLDOWN_MS } from '../config/constants';
+
+/**
+ * Detects the active provider based on environment configuration.
+ * Prioritizes EXPO_PUBLIC_LLM_PROVIDER, then falls back based on key presence.
+ */
+export function getActiveProvider() {
+  const envProvider = process.env.EXPO_PUBLIC_LLM_PROVIDER?.toLowerCase()?.trim();
+  if (envProvider === 'gemini') return 'gemini';
+  if (envProvider === 'groq') return 'groq';
+
+  const hasGroqKey = !!(process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY);
+  const hasGeminiKey = !!(process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+
+  if (hasGroqKey) return 'groq';
+  if (hasGeminiKey) return 'gemini';
+  return 'groq'; // default fallback
+}
 
 /**
  * useRecipeGenerator — the brain of the app.
@@ -13,27 +31,38 @@ import { MESSAGES, REQUEST_COOLDOWN_MS } from '../config/constants';
  *   appState: 'input' | 'loading' | 'result'
  *   recipe: object | null
  *   error: string | null
+ *   isErrorRetryable: boolean
  *   generateRecipe(ingredients: string[]) — main trigger
  *   retryLast() — re-fires the last API call
  *   resetToInput() — clears recipe, goes back to input state
  *   dismissError() — clears the error toast
  */
 export function useRecipeGenerator() {
-  const [appState,  setAppState]  = useState('input');
-  const [recipe,    setRecipe]    = useState(null);
-  const [error,     setError]     = useState(null);
+  const [appState,  setAppState]      = useState('input');
+  const [recipe,    setRecipe]        = useState(null);
+  const [error,     setError]         = useState(null);
+  const [isErrorRetryable, setIsRetryable] = useState(false);
 
   const lastIngredientsRef = useRef([]);
   const lastServingsRef    = useRef(2);
   const lastRequestTimeRef = useRef(0);
 
   const _callAPI = useCallback(async (ingredients, servings) => {
-    setError(null);
+    // Fix Bug 3.1: Do not clear setError if it contains ONE_INGREDIENT warning
+    setError(prev => prev === MESSAGES.ONE_INGREDIENT ? prev : null);
     setAppState('loading');
 
     try {
-      const rawJSON = await fetchRecipeFromGroq(ingredients, servings);
-      const parsed  = parseRecipeResponse(rawJSON);
+      const provider = getActiveProvider();
+      let rawJSON;
+      
+      if (provider === 'gemini') {
+        rawJSON = await fetchRecipeFromGemini(ingredients, servings);
+      } else {
+        rawJSON = await fetchRecipeFromGroq(ingredients, servings);
+      }
+
+      const parsed = parseRecipeResponse(rawJSON);
 
       if (!parsed) {
         throw new Error(MESSAGES.API_ERROR);
@@ -43,7 +72,12 @@ export function useRecipeGenerator() {
       setAppState('result');
     } catch (err) {
       setAppState('input');
-      setError(err.message ?? MESSAGES.API_ERROR);
+      const msg = err.message ?? MESSAGES.API_ERROR;
+      setError(msg);
+      
+      // Determine if error is retryable (validation/non-food errors are not retryable)
+      const isNonFood = msg === MESSAGES.NON_FOOD || msg.includes('food') || msg.includes('ingredients');
+      setIsRetryable(!isNonFood);
     }
   }, []);
 
@@ -51,6 +85,7 @@ export function useRecipeGenerator() {
     // Validation: must have at least 1 ingredient to call API
     if (!ingredients || ingredients.length === 0) {
       setError(MESSAGES.EMPTY_INPUT);
+      setIsRetryable(false);
       return;
     }
 
@@ -60,6 +95,7 @@ export function useRecipeGenerator() {
     if (elapsed < REQUEST_COOLDOWN_MS) {
       const secsLeft = Math.ceil((REQUEST_COOLDOWN_MS - elapsed) / 1000);
       setError(`${MESSAGES.COOLDOWN} (${secsLeft}s remaining)`);
+      setIsRetryable(false);
       return;
     }
 
@@ -67,9 +103,10 @@ export function useRecipeGenerator() {
     lastIngredientsRef.current = ingredients;
     lastServingsRef.current    = servings;
 
-    // §8.1 — 1 ingredient: show warning toast but still proceed with API call
+    // 1 ingredient: show warning toast but still proceed with API call
     if (ingredients.length === 1) {
       setError(MESSAGES.ONE_INGREDIENT);
+      setIsRetryable(false);
     }
 
     await _callAPI(ingredients, servings);
@@ -85,15 +122,18 @@ export function useRecipeGenerator() {
   const resetToInput = useCallback(() => {
     setRecipe(null);
     setError(null);
+    setIsRetryable(false);
     setAppState('input');
   }, []);
 
   const dismissError = useCallback(() => {
     setError(null);
+    setIsRetryable(false);
   }, []);
 
   const loadSuggestedRecipe = useCallback((mockRecipe) => {
     setError(null);
+    setIsRetryable(false);
     setRecipe(mockRecipe);
     setAppState('result');
   }, []);
@@ -102,6 +142,7 @@ export function useRecipeGenerator() {
     appState,
     recipe,
     error,
+    isErrorRetryable,
     generateRecipe,
     retryLast,
     resetToInput,

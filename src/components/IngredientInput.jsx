@@ -80,7 +80,6 @@ function parseIngredients(text) {
 /**
  * IngredientInput — text field with live tag parsing, focus animation,
  * ingredient counter, inline hints, debounced parsing, and shake animation.
- * PRD §6.2, §7.1, §7.3, §8.1, §13
  *
  * Props:
  *   onIngredientsChange(ingredients: string[]) — called on every parse
@@ -98,18 +97,18 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
   const activeSetIngredients = setIngredients || setLocalIngredients;
 
   const borderColor   = useRef(new Animated.Value(0)).current;
-  const focusLabelOp  = useRef(new Animated.Value(0)).current;  // §7.1 focus label
-  const shakeAnim     = useRef(new Animated.Value(0)).current;  // §8.1 shake
-  const debounceTimer = useRef(null);                           // §13 debounce
+  const focusLabelOp  = useRef(new Animated.Value(0)).current;  // focus label
+  const shakeAnim     = useRef(new Animated.Value(0)).current;  // shake
+  const debounceTimer = useRef(null);                           // debounce
 
   // Sync text input with parent reset
   useEffect(() => {
-    if (activeIngredients.length === 0) {
+    if (activeIngredients.length === 0 && !isFocused) {
       setInputValue('');
     }
-  }, [activeIngredients]);
+  }, [activeIngredients, isFocused]);
 
-  // ── §7.1 — Focus-triggered instruction label ────────────────────────────────
+  // Focus-triggered instruction label
   function handleFocus() {
     setIsFocused(true);
     Animated.parallel([
@@ -126,7 +125,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
     ]).start();
   }
 
-  // ── §7.1 — Focus-triggered instruction label ──
+  // Focus-triggered instruction label
   function handleBlur() {
     setIsFocused(false);
     Animated.parallel([
@@ -143,7 +142,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
     ]).start();
   }
 
-  // ── §8.1 — Shake animation triggered by parent ──────────────────────────────
+  // Shake animation triggered by parent
   useEffect(() => {
     if (!shake) return;
     Animated.sequence([
@@ -161,7 +160,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
     outputRange: [COLORS.borderSubtle, COLORS.accentSecondary],
   });
 
-  // ── §13 — 100ms debounced parsing ───────────────────────────────────────────
+  // 100ms debounced parsing
   const handleChange = useCallback((text) => {
     setInputValue(text);
 
@@ -183,6 +182,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
   }, []);
 
   function removeIngredient(label) {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     const updated = activeIngredients.filter(i => i !== label);
     const newText = updated.join(', ') + (updated.length > 0 ? ', ' : '');
     setInputValue(newText);
@@ -191,6 +191,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
   }
 
   function toggleIngredient(item) {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     const isAdded = activeIngredients.includes(item);
     let updated;
     if (isAdded) {
@@ -211,7 +212,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
   }
 
   const count      = activeIngredients.length;
-  const hasNoComma = inputValue.trim().length > 2 && !inputValue.includes(',');
+  const hasNoComma = count === 0 && inputValue.trim().length > 2 && !inputValue.includes(',');
   const isAtMax    = count >= VALIDATION.MAX_INGREDIENTS;
 
   // Counter color
@@ -224,7 +225,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
       {/* Section label */}
       <Text style={styles.sectionLabel}>WHAT'S IN YOUR KITCHEN?</Text>
 
-      {/* §7.1 — Focus-triggered instruction label (fades in when keyboard opens) */}
+      {/* Focus-triggered instruction label (fades in when keyboard opens) */}
       <Animated.Text style={[styles.focusHint, { opacity: focusLabelOp }]}>
         Separate ingredients with commas
       </Animated.Text>
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: SPACING.xs,
   },
-  // §7.1 — focus-triggered instruction label
+  // focus-triggered instruction label
   focusHint: {
     fontSize: TYPOGRAPHY.microSize,
     color: COLORS.accentSecondary,

@@ -22,7 +22,6 @@ function PanIcon() {
 
 /**
  * Header — app name, tagline, and custom pan SVG.
- * PRD §6.1
  */
 export function Header() {
   return (

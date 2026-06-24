@@ -39,7 +39,6 @@ const removeIcon = StyleSheet.create({
 
 /**
  * IngredientTag — a single pill tag with spring entrance and tap-to-remove.
- * PRD §6.2, §7.4, §12
  *
  * Props:
  *   label: string       — ingredient name to display
@@ -49,7 +48,7 @@ export function IngredientTag({ label, onRemove }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Light haptic when tag appears (§7.4 — tag added)
+    // Light haptic when tag appears (tag added)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
     Animated.spring(scaleAnim, {
@@ -61,7 +60,7 @@ export function IngredientTag({ label, onRemove }) {
   }, [scaleAnim]);
 
   function handleRemove() {
-    // Light haptic when tag removed (§7.4 — tag removed)
+    // Light haptic when tag removed (tag removed)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onRemove();
   }

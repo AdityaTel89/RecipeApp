@@ -3,7 +3,6 @@ import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
 /**
  * RecipeStep — a single numbered cooking step.
- * PRD §6.5 / §11.1
  *
  * Props:
  *   stepNumber: number  — 1-indexed step number

@@ -63,7 +63,7 @@ const hat = StyleSheet.create({
 });
 
 /**
- * Warning badge dot shown when exactly 1 ingredient is entered. (§8.1)
+ * Warning badge dot shown when exactly 1 ingredient is entered.
  */
 function WarningBadge() {
   return (
@@ -95,17 +95,6 @@ const badge = StyleSheet.create({
   },
 });
 
-/**
- * GenerateButton — CTA with press animation, disabled state, warning badge,
- * and Heavy haptic feedback.
- * PRD §6.3, §7.4, §8.1
- *
- * Props:
- *   onPress: () => void
- *   disabled: boolean      — fully disabled (0 ingredients)
- *   isWarning: boolean     — warning state (exactly 1 ingredient)
- *   isLoading: boolean
- */
 export function GenerateButton({ onPress, disabled, isWarning, isLoading }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -130,7 +119,7 @@ export function GenerateButton({ onPress, disabled, isWarning, isLoading }) {
 
   function handlePress() {
     if (disabled || isLoading) return;
-    // §7.4 — Heavy haptic on CTA tap
+    // Heavy haptic on CTA tap
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     onPress();
   }
@@ -171,7 +160,7 @@ export function GenerateButton({ onPress, disabled, isWarning, isLoading }) {
             </View>
           </Pressable>
 
-          {/* §8.1 — Warning badge when exactly 1 ingredient */}
+          {/* Warning badge when exactly 1 ingredient */}
           {isWarning && !isInactive ? <WarningBadge /> : null}
         </View>
       </Animated.View>

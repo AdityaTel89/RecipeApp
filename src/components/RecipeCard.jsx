@@ -15,7 +15,7 @@ import { TipCard } from './TipCard';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-// ─── SVG Icons (no emoji) ─────────────────────────────────────────────────────
+// SVG Icons (no emoji)
 
 /** Clock / timer icon */
 function ClockIcon() {
@@ -143,7 +143,7 @@ const refresh = StyleSheet.create({
   },
 });
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// Sub-components
 
 function MetaItem({ Icon, label }) {
   return (
@@ -240,11 +240,10 @@ const ingStyles = StyleSheet.create({
   },
 });
 
-// ─── Main RecipeCard ──────────────────────────────────────────────────────────
+// Main RecipeCard
 
 /**
  * RecipeCard — full recipe display with slide-up spring animation.
- * PRD §6.5
  *
  * Props:
  *   recipe: object      — parsed recipe from Groq (JSON schema)
@@ -255,7 +254,7 @@ export function RecipeCard({ recipe, onReset }) {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // §7.4 — Success haptic when recipe appears
+    // Success haptic when recipe appears
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     Animated.parallel([

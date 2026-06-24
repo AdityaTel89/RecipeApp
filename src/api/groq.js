@@ -1,8 +1,8 @@
 import { GROQ, MESSAGES, API_TIMEOUT_MS } from '../config/constants';
 
-const API_KEY = process.env.EXPO_PUBLIC_GROQ_KEY;
+const API_KEY = process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY;
 
-// ─── System Prompt (PRD §10.1) ───────────────────────────────────────────────
+
 const SYSTEM_PROMPT = `You are a professional chef and recipe writer. Your job is to create clear, detailed, easy-to-follow recipes based on a list of ingredients a home cook has available.
 
 STRICT RULES:
@@ -17,7 +17,7 @@ STRICT RULES:
 9. Always include a "tips" field with one useful cooking tip.
 10. Estimate cook_time honestly. Do not say "10 minutes" if it takes 30.`;
 
-// ─── User Prompt Builder (PRD §10.2) ─────────────────────────────────────────
+
 function buildUserPrompt(ingredients, servings = 2) {
   const list = Array.isArray(ingredients) ? ingredients.join(', ') : ingredients;
   return `Create a complete recipe using these ingredients: ${list}.
@@ -36,9 +36,6 @@ Follow this JSON schema exactly:
 }
 
 /**
- * Calls the Groq API with a structured JSON prompt.
- * Uses AbortController for a 15-second timeout.
- *
  * @param {string|string[]} ingredients — cleaned ingredient list
  * @param {number} servings — number of servings requested
  * @returns {Promise<object>} parsed recipe JSON

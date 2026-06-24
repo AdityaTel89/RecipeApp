@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useRecipeGenerator } from '../hooks/useRecipeGenerator';
+import { useRecipeGenerator, getActiveProvider } from '../hooks/useRecipeGenerator';
 import { Header }          from '../components/Header';
 import { IngredientInput } from '../components/IngredientInput';
 import { GenerateButton }  from '../components/GenerateButton';
@@ -20,17 +20,22 @@ import { RecipeCard }      from '../components/RecipeCard';
 import { ErrorToast }      from '../components/ErrorToast';
 import { COLORS, SPACING, FONTS, SUGGESTED_RECIPES } from '../config/constants';
 
-const GROQ_KEY_MISSING = __DEV__ && !process.env.EXPO_PUBLIC_GROQ_KEY;
+const activeProvider = getActiveProvider();
+const hasKey = activeProvider === 'gemini'
+  ? !!(process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY)
+  : !!(process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY);
+const KEY_MISSING = __DEV__ && !hasKey;
 
 /**
- * §8.2 — Persistent dev-mode banner when API key is not configured.
+ * Persistent dev-mode banner when API key is not configured.
  * Only visible in development (__DEV__) builds.
  */
-function DevKeyBanner() {
+function DevKeyBanner({ provider }) {
+  const keyName = provider === 'gemini' ? 'EXPO_PUBLIC_GEMINI_KEY' : 'EXPO_PUBLIC_GROQ_KEY';
   return (
     <View style={bannerStyles.banner}>
       <Text style={bannerStyles.text}>
-        ⚙️  Groq API key not configured. See .env setup (EXPO_PUBLIC_GROQ_KEY).
+        ⚙️  {provider === 'gemini' ? 'Gemini' : 'Groq'} API key not configured. See .env setup ({keyName}).
       </Text>
     </View>
   );
@@ -269,16 +274,15 @@ const servStyles = StyleSheet.create({
 /**
  * HomeScreen — single screen, three visual states:
  *   'input'   → Header + IngredientInput + GenerateButton
- *   'loading' → LoadingSkeleton with rotating messages
+ *   'loading' transition -> LoadingSkeleton
  *   'result'  → RecipeCard (full screen, scrollable)
- *
- * PRD §4, §7.1, §8.1, §8.2
  */
 export function HomeScreen() {
   const {
     appState,
     recipe,
     error,
+    isErrorRetryable,
     generateRecipe,
     retryLast,
     resetToInput,
@@ -292,7 +296,7 @@ export function HomeScreen() {
   // User-specified serving size
   const [servings, setServings] = useState(2);
 
-  // §8.1 — shake signal: toggled to a new value each time a shake is needed
+  // shake signal: toggled to a new value each time a shake is needed
   const [shakeKey, setShakeKey] = useState(false);
 
   // Fade animators for state transitions
@@ -304,7 +308,7 @@ export function HomeScreen() {
   }, []);
 
   const handleGenerate = useCallback(() => {
-    // §8.1 — shake on empty input (0 ingredients)
+    // shake on empty input (0 ingredients)
     if (ingredients.length === 0) {
       setShakeKey(prev => !prev);
       return;
@@ -348,14 +352,14 @@ export function HomeScreen() {
   const isLoading  = appState === 'loading';
   const showResult = appState === 'result' && recipe;
 
-  // §8.1 — disabled only at 0 ingredients; 1 ingredient shows warning badge but is enabled
+  // disabled only at 0 ingredients; 1 ingredient shows warning badge but is enabled
   const isDisabled = ingredients.length === 0 || isLoading;
   const isWarning  = ingredients.length === 1 && !isLoading;
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* §8.2 — Dev-mode API key missing persistent banner */}
-      {GROQ_KEY_MISSING ? <DevKeyBanner /> : null}
+      {/* Dev-mode API key missing persistent banner */}
+      {KEY_MISSING ? <DevKeyBanner provider={activeProvider} /> : null}
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -367,7 +371,7 @@ export function HomeScreen() {
           <ErrorToast
             message={error}
             onDismiss={dismissError}
-            onRetry={retryLast}
+            onRetry={isErrorRetryable ? retryLast : null}
           />
         ) : null}
 

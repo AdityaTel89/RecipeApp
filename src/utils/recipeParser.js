@@ -1,7 +1,7 @@
 /**
  * Parses and validates the structured JSON recipe returned by Groq.
  *
- * Expected shape (PRD §9.3):
+ * Expected shape:
  * {
  *   title: string,
  *   cook_time: string,

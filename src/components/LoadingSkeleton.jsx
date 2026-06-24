@@ -191,7 +191,6 @@ const animPan = StyleSheet.create({
 
 /**
  * LoadingSkeleton — animated skeleton cards + rotating contextual messages.
- * PRD §6.4 (Option A + B combined)
  *
  * Skeleton shimmer: EDE4D8 → F7F0E8 → EDE4D8, looping.
  * Messages rotate every 2s with fade transition.

@@ -50,7 +50,6 @@ const bulb = StyleSheet.create({
 
 /**
  * TipCard — Chef's tip block at the bottom of a recipe.
- * PRD §11.4
  *
  * Props:
  *   tip: string — the chef's tip text

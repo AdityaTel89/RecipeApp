@@ -88,22 +88,12 @@ const closeIcon = StyleSheet.create({
   },
 });
 
-/**
- * ErrorToast — slides in from the top of the screen.
- * Auto-dismisses in 4 seconds. User can also swipe/tap close.
- * PRD §6.6
- *
- * Props:
- *   message: string       — error text to display
- *   onDismiss: () => void — called when toast should be hidden
- *   onRetry?: () => void  — optional retry callback
- */
 export function ErrorToast({ message, onDismiss, onRetry }) {
   const translateY = useRef(new Animated.Value(-120)).current;
   const dismissTimer = useRef(null);
 
   useEffect(() => {
-    // §7.4 — Error haptic when toast appears
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 
     // Slide in
