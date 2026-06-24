@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, LOADING_MESSAGES } from '../config/constants';
+import { COLORS, SPACING, TYPOGRAPHY, LOADING_MESSAGES, FONTS } from '../config/constants';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -44,6 +44,152 @@ function ShimmerBar({ width, height = 14, style }) {
 }
 
 /**
+ * AnimatedPan — engaging wobbly sauté pan with rising steam animations.
+ */
+function AnimatedPan() {
+  const tiltAnim   = useRef(new Animated.Value(0)).current;
+  const steamAnim1 = useRef(new Animated.Value(0)).current;
+  const steamAnim2 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Loop tilt/wobble back and forth
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(tiltAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(tiltAnim, {
+          toValue: -1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Loop steam line 1 rising
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(steamAnim1, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(steamAnim1, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Loop steam line 2 rising (delayed)
+    const timer = setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(steamAnim2, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(steamAnim2, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [tiltAnim, steamAnim1, steamAnim2]);
+
+  const rotate = tiltAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-10deg', '10deg'],
+  });
+
+  const translateY1 = steamAnim1.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
+  });
+  const opacity1 = steamAnim1.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.7, 0],
+  });
+
+  const translateY2 = steamAnim2.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
+  });
+  const opacity2 = steamAnim2.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.7, 0],
+  });
+
+  return (
+    <View style={animPan.wrapper}>
+      {/* Rising Steam */}
+      <Animated.View
+        style={[
+          animPan.steam,
+          { left: 16, transform: [{ translateY: translateY1 }], opacity: opacity1 },
+        ]}
+      />
+      <Animated.View
+        style={[
+          animPan.steam,
+          { left: 24, transform: [{ translateY: translateY2 }], opacity: opacity2 },
+        ]}
+      />
+
+      {/* Tilting Pan */}
+      <Animated.View style={{ transform: [{ rotate }] }}>
+        <View style={animPan.panBody} />
+        <View style={animPan.handle} />
+      </Animated.View>
+    </View>
+  );
+}
+
+const animPan = StyleSheet.create({
+  wrapper: {
+    width: 60,
+    height: 50,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.base,
+  },
+  panBody: {
+    width: 32,
+    height: 18,
+    borderRadius: 9,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    backgroundColor: COLORS.accentPrimary,
+  },
+  handle: {
+    position: 'absolute',
+    bottom: 6,
+    right: -12,
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.accentPrimary,
+  },
+  steam: {
+    position: 'absolute',
+    top: 2,
+    width: 2.5,
+    height: 8,
+    borderRadius: 1.25,
+    backgroundColor: COLORS.accentSecondary,
+  },
+});
+
+/**
  * LoadingSkeleton — animated skeleton cards + rotating contextual messages.
  * PRD §6.4 (Option A + B combined)
  *
@@ -85,6 +231,9 @@ export function LoadingSkeleton() {
     >
       {/* Skeleton card 1 — recipe header */}
       <View style={styles.card}>
+        {/* Sauté pan animation */}
+        <AnimatedPan />
+
         {/* Title skeleton */}
         <ShimmerBar width="75%" height={22} style={styles.bar} />
         <ShimmerBar width="55%" height={22} style={styles.bar} />
@@ -191,5 +340,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '400',
     letterSpacing: 0.2,
+    fontFamily: FONTS.interRegular,
   },
 });

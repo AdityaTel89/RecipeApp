@@ -18,15 +18,16 @@ STRICT RULES:
 10. Estimate cook_time honestly. Do not say "10 minutes" if it takes 30.`;
 
 // ─── User Prompt Builder (PRD §10.2) ─────────────────────────────────────────
-function buildUserPrompt(ingredients) {
+function buildUserPrompt(ingredients, servings = 2) {
   const list = Array.isArray(ingredients) ? ingredients.join(', ') : ingredients;
   return `Create a complete recipe using these ingredients: ${list}.
+The recipe MUST be scaled exactly for ${servings} serving${servings === 1 ? '' : 's'}. Adjust the ingredient quantities, cooking times, and cooking process/instructions to suit this serving size.
 
 Follow this JSON schema exactly:
 {
   "title": string,
   "cook_time": string,
-  "servings": string,
+  "servings": "${servings}",
   "difficulty": "Easy" | "Medium" | "Hard",
   "ingredients": [{ "quantity": string, "unit": string, "name": string }],
   "steps": [{ "step_number": number, "title": string, "instruction": string }],
@@ -39,9 +40,10 @@ Follow this JSON schema exactly:
  * Uses AbortController for a 15-second timeout.
  *
  * @param {string|string[]} ingredients — cleaned ingredient list
+ * @param {number} servings — number of servings requested
  * @returns {Promise<object>} parsed recipe JSON
  */
-export async function fetchRecipeFromGroq(ingredients) {
+export async function fetchRecipeFromGroq(ingredients, servings = 2) {
   if (!API_KEY) {
     throw new Error('Groq API key not configured. Check your .env file.');
   }
@@ -57,7 +59,7 @@ export async function fetchRecipeFromGroq(ingredients) {
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user',   content: buildUserPrompt(ingredients) },
+      { role: 'user',   content: buildUserPrompt(ingredients, servings) },
     ],
   };
 

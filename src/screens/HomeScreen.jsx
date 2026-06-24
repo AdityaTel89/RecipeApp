@@ -171,6 +171,102 @@ const sugStyles = StyleSheet.create({
 });
 
 /**
+ * ServingsSelector — premium one-tap circular segment selector for serving sizes 1-8.
+ */
+function ServingsSelector({ servings, onChange }) {
+  const options = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  return (
+    <View style={servStyles.container}>
+      <Text style={servStyles.label}>NUMBER OF SERVINGS</Text>
+      <View style={servStyles.row}>
+        {options.map((val) => {
+          const isSelected = servings === val;
+          return (
+            <Pressable
+              key={val}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                onChange(val);
+              }}
+              style={({ pressed }) => [
+                servStyles.circle,
+                isSelected && servStyles.circleSelected,
+                pressed && !isSelected && servStyles.circlePressed
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${val} serving${val === 1 ? '' : 's'}`}
+              accessibilityState={{ selected: isSelected }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            >
+              <Text style={[
+                servStyles.circleText,
+                isSelected && servStyles.circleTextSelected
+              ]}>
+                {val}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const servStyles = StyleSheet.create({
+  container: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FONTS.interBold,
+    color: COLORS.textSecondary,
+    letterSpacing: 1.2,
+    marginBottom: SPACING.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 14,
+    padding: SPACING.sm,
+  },
+  circle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.bgBase,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleSelected: {
+    backgroundColor: COLORS.accentPrimary,
+    borderColor: COLORS.accentPrimary,
+  },
+  circlePressed: {
+    backgroundColor: '#FFF0E6',
+    borderColor: COLORS.accentSecondary,
+  },
+  circleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: FONTS.interBold,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+  },
+  circleTextSelected: {
+    color: '#FFFFFF',
+  },
+});
+
+/**
  * HomeScreen — single screen, three visual states:
  *   'input'   → Header + IngredientInput + GenerateButton
  *   'loading' → LoadingSkeleton with rotating messages
@@ -192,6 +288,9 @@ export function HomeScreen() {
 
   // Local ingredient list tracked from IngredientInput
   const [ingredients, setIngredients] = useState([]);
+
+  // User-specified serving size
+  const [servings, setServings] = useState(2);
 
   // §8.1 — shake signal: toggled to a new value each time a shake is needed
   const [shakeKey, setShakeKey] = useState(false);
@@ -225,8 +324,8 @@ export function HomeScreen() {
       }),
     ]).start();
 
-    generateRecipe(ingredients);
-  }, [ingredients, generateRecipe, inputFade, skeletonFade]);
+    generateRecipe(ingredients, servings);
+  }, [ingredients, servings, generateRecipe, inputFade, skeletonFade]);
 
   const handleReset = useCallback(() => {
     // Restore input fade
@@ -242,6 +341,7 @@ export function HomeScreen() {
     }).start();
 
     setIngredients([]);
+    setServings(2); // Reset servings to default 2
     resetToInput();
   }, [resetToInput, inputFade, skeletonFade]);
 
@@ -281,46 +381,56 @@ export function HomeScreen() {
           </View>
         ) : (
           /* ── INPUT + LOADING STATES ── */
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Header />
+          <View style={styles.flex}>
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Header />
 
-            {/* Input state fades out when loading */}
-            <Animated.View style={{ opacity: isLoading ? inputFade : 1 }}>
-              <IngredientInput
-                onIngredientsChange={handleIngredientsChange}
-                isLoading={isLoading}
-                shake={shakeKey}
-                ingredients={ingredients}
-                setIngredients={setIngredients}
-              />
-            </Animated.View>
+              {/* Input state fades out when loading */}
+              {!isLoading ? (
+                <Animated.View style={{ opacity: inputFade }}>
+                  <IngredientInput
+                    onIngredientsChange={handleIngredientsChange}
+                    isLoading={isLoading}
+                    shake={shakeKey}
+                    ingredients={ingredients}
+                    setIngredients={setIngredients}
+                  />
+
+                  {/* Servings selector sits under input */}
+                  <ServingsSelector servings={servings} onChange={setServings} />
+                </Animated.View>
+              ) : null}
+
+              {/* Predefined instant recipes suggestion */}
+              {!isLoading ? (
+                <SuggestedRecipes onSelectRecipe={loadSuggestedRecipe} />
+              ) : null}
+
+              {/* Loading skeleton fades in */}
+              {isLoading ? (
+                <Animated.View style={{ opacity: skeletonFade }}>
+                  <LoadingSkeleton />
+                </Animated.View>
+              ) : null}
+            </ScrollView>
 
             {/* Generate button — always visible above keyboard */}
             {!isLoading ? (
-              <GenerateButton
-                onPress={handleGenerate}
-                disabled={isDisabled}
-                isWarning={isWarning}
-                isLoading={false}
-              />
+              <View style={styles.buttonContainer}>
+                <GenerateButton
+                  onPress={handleGenerate}
+                  disabled={isDisabled}
+                  isWarning={isWarning}
+                  isLoading={false}
+                />
+              </View>
             ) : null}
-
-            {/* Predefined instant recipes suggestion */}
-            {!isLoading ? (
-              <SuggestedRecipes onSelectRecipe={loadSuggestedRecipe} />
-            ) : null}
-
-            {/* Loading skeleton fades in */}
-            {isLoading ? (
-              <Animated.View style={{ opacity: skeletonFade }}>
-                <LoadingSkeleton />
-              </Animated.View>
-            ) : null}
-          </ScrollView>
+          </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -338,10 +448,15 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.lg,
-    paddingBottom: 80,
+    paddingBottom: 120, // Extra spacing so content is scrollable above the floating button
   },
   resultHeader: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.lg,
+  },
+  buttonContainer: {
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: Platform.OS === 'ios' ? SPACING.md : SPACING.base,
+    backgroundColor: COLORS.bgBase,
   },
 });

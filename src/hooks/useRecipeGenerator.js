@@ -24,14 +24,15 @@ export function useRecipeGenerator() {
   const [error,     setError]     = useState(null);
 
   const lastIngredientsRef = useRef([]);
+  const lastServingsRef    = useRef(2);
   const lastRequestTimeRef = useRef(0);
 
-  const _callAPI = useCallback(async (ingredients) => {
+  const _callAPI = useCallback(async (ingredients, servings) => {
     setError(null);
     setAppState('loading');
 
     try {
-      const rawJSON = await fetchRecipeFromGroq(ingredients);
+      const rawJSON = await fetchRecipeFromGroq(ingredients, servings);
       const parsed  = parseRecipeResponse(rawJSON);
 
       if (!parsed) {
@@ -46,7 +47,7 @@ export function useRecipeGenerator() {
     }
   }, []);
 
-  const generateRecipe = useCallback(async (ingredients) => {
+  const generateRecipe = useCallback(async (ingredients, servings = 2) => {
     // Validation: must have at least 1 ingredient to call API
     if (!ingredients || ingredients.length === 0) {
       setError(MESSAGES.EMPTY_INPUT);
@@ -64,19 +65,20 @@ export function useRecipeGenerator() {
 
     lastRequestTimeRef.current = now;
     lastIngredientsRef.current = ingredients;
+    lastServingsRef.current    = servings;
 
     // §8.1 — 1 ingredient: show warning toast but still proceed with API call
     if (ingredients.length === 1) {
       setError(MESSAGES.ONE_INGREDIENT);
     }
 
-    await _callAPI(ingredients);
+    await _callAPI(ingredients, servings);
   }, [_callAPI]);
 
   const retryLast = useCallback(() => {
     if (lastIngredientsRef.current.length > 0) {
       lastRequestTimeRef.current = 0; // Bypass cooldown on retry
-      _callAPI(lastIngredientsRef.current);
+      _callAPI(lastIngredientsRef.current, lastServingsRef.current);
     }
   }, [_callAPI]);
 

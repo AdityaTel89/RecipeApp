@@ -294,7 +294,21 @@ export function RecipeCard({ recipe, onReset }) {
       >
         {/* ── Gradient Header ── */}
         <View style={styles.headerCard}>
-          <Text style={styles.eyebrow}>RECIPE</Text>
+          <View style={styles.eyebrowRow}>
+            <Text style={styles.eyebrow}>RECIPE</Text>
+            <Pressable
+              onPress={onReset}
+              style={styles.closeRecipeBtn}
+              accessibilityLabel="Close recipe"
+              accessibilityRole="button"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <View style={styles.closeIconWrapper}>
+                <View style={[styles.closeLine, { transform: [{ rotate: '45deg' }] }]} />
+                <View style={[styles.closeLine, { transform: [{ rotate: '-45deg' }] }]} />
+              </View>
+            </Pressable>
+          </View>
           <Text style={styles.recipeTitle}>{title}</Text>
 
           {/* Meta row */}
@@ -405,6 +419,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  closeRecipeBtn: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -SPACING.xs,
+    marginTop: -SPACING.xs,
+  },
+  closeIconWrapper: {
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeLine: {
+    position: 'absolute',
+    width: 14,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.85,
   },
   eyebrow: {
     fontSize: TYPOGRAPHY.smallSize,

@@ -12,22 +12,69 @@ import * as Haptics from 'expo-haptics';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, VALIDATION, FONTS, QUICK_ADD_INGREDIENTS } from '../config/constants';
 import { IngredientTag } from './IngredientTag';
 
+// Common multi-word ingredients to preserve when splitting on spaces (no commas)
+const PRESERVED_MULTI_WORDS = [
+  'soy sauce', 'olive oil', 'sesame oil', 'chicken breast', 'sour cream',
+  'black pepper', 'tomato paste', 'cream cheese', 'coconut milk', 'maple syrup',
+  'peanut butter', 'brown sugar', 'garlic powder', 'onion powder', 'chili powder'
+];
+
 /**
- * Parse comma-separated input into ingredient tokens.
- * Deduplicates and filters tokens under MIN_INGREDIENT_LENGTH.
+ * Parse input text into ingredient tokens.
+ * Handles both comma-separated and space-separated text, while preserving
+ * common multi-word pantry items from getting split.
  */
 function parseIngredients(text) {
+  if (!text || typeof text !== 'string') return [];
+
+  const normalized = text.toLowerCase().trim();
+
+  // If input contains commas, parse strictly by commas
+  if (normalized.includes(',')) {
+    const seen = new Set();
+    return normalized
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length >= VALIDATION.MIN_INGREDIENT_LENGTH)
+      .filter(item => {
+        if (seen.has(item)) return false;
+        seen.add(item);
+        return true;
+      });
+  }
+
+  // If no commas, split on spaces but preserve common multi-word ingredients
+  const placeholders = {};
+  let tempText = normalized;
+
+  PRESERVED_MULTI_WORDS.forEach((phrase, index) => {
+    const regex = new RegExp(`\\b${phrase}\\b`, 'gi');
+    if (regex.test(tempText)) {
+      const placeholder = `__ph_${index}__`;
+      placeholders[placeholder] = phrase;
+      tempText = tempText.replace(regex, placeholder);
+    }
+  });
+
+  const tokens = tempText.split(/\s+/).filter(Boolean);
+  const parsed = [];
   const seen = new Set();
-  return text
-    .split(',')
-    .map(item => item.trim())
-    .filter(item => item.length >= VALIDATION.MIN_INGREDIENT_LENGTH)
-    .filter(item => {
-      const lower = item.toLowerCase();
-      if (seen.has(lower)) return false;
-      seen.add(lower);
-      return true;
-    });
+
+  tokens.forEach(token => {
+    let restored = token;
+    if (placeholders[token]) {
+      restored = placeholders[token];
+    }
+    
+    if (restored.startsWith('__ph_') || restored.length >= VALIDATION.MIN_INGREDIENT_LENGTH) {
+      if (!seen.has(restored)) {
+        seen.add(restored);
+        parsed.push(restored);
+      }
+    }
+  });
+
+  return parsed;
 }
 
 /**
@@ -232,11 +279,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
       {!isLoading ? (
         <View style={styles.quickAddSection}>
           <Text style={styles.quickAddLabel}>QUICK ADD PANTRY STAPLES</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickAddScroll}
-          >
+          <View style={styles.quickAddGrid}>
             {QUICK_ADD_INGREDIENTS.map(item => {
               const isAdded = activeIngredients.includes(item);
               return (
@@ -262,7 +305,7 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
       ) : null}
 
@@ -361,9 +404,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  quickAddScroll: {
+  quickAddGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
     paddingVertical: SPACING.xs,
-    gap: SPACING.sm,
   },
   quickAddPill: {
     paddingHorizontal: SPACING.md,
@@ -372,6 +417,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgCard,
     borderWidth: 1.5,
     borderColor: COLORS.borderSubtle,
+    marginBottom: SPACING.xs,
     marginRight: SPACING.xs,
   },
   quickAddPillActive: {
