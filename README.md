@@ -8,6 +8,18 @@ Built with performance, premium UX/UI, and accessibility at its core.
 
 ---
 
+## 📱 Screenshots
+
+<p align="center">
+  <img src="assets/home.jpeg" width="30%" alt="Home Screen" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/input.jpeg" width="30%" alt="Ingredient Input" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/recipe.jpeg" width="30%" alt="Recipe Result" />
+</p>
+
+---
+
 ## 🌟 Key Features
 
 *   **Multi-LLM Support:** Works with OpenAI (GPT-4o mini), Groq (Llama 3.3 70B), Google Gemini (1.5 Flash), and Anthropic Claude (Haiku). Add any combination of keys and the backend handles the rest.
