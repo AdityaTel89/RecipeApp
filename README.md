@@ -177,23 +177,6 @@ npm run ios          # Launch on iOS simulator
 ```
 
 ---
-
-## ⚙️ Provider Priority & Failover
-
-When multiple API keys are configured in `backend/.env`, the server tries providers in this order:
-
-```
-OpenAI → Groq → Gemini → Claude
-```
-
-**Failover rules:**
-- **Rate limit (429) or server error (5xx):** Silently skip to the next provider.
-- **Invalid key (401/403):** Surface an error immediately — no failover (avoids burning quota on other providers for an auth problem).
-- **Non-food ingredients:** Error surfaced immediately, no failover.
-- **All providers exhausted:** Clear error shown to the user.
-
----
-
 ## 📂 Project Structure
 
 ```
