@@ -12,24 +12,28 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useRecipeGenerator, getConfiguredProviders } from '../hooks/useRecipeGenerator';
+
+
+
 import { Header }          from '../components/Header';
 import { IngredientInput } from '../components/IngredientInput';
 import { GenerateButton }  from '../components/GenerateButton';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { RecipeCard }      from '../components/RecipeCard';
 import { ErrorToast }      from '../components/ErrorToast';
-import { COLORS, SPACING, FONTS, SUGGESTED_RECIPES } from '../config/constants';
+import { COLORS, SPACING, FONTS, SUGGESTED_RECIPES, BACKEND_URL } from '../config/constants';
 
-const configuredProviders = getConfiguredProviders();
-const KEY_MISSING = __DEV__ && configuredProviders.length === 0;
+// In dev mode, show a banner if the backend URL is still the default placeholder
+const KEY_MISSING = __DEV__ && !process.env.EXPO_PUBLIC_API_URL;
 
 
 function DevKeyBanner() {
   return (
     <View style={bannerStyles.banner}>
       <Text style={bannerStyles.text}>
-        ⚙️  No API key found. Add one or more to your .env:{`\n`}
-        EXPO_PUBLIC_OPENAI_KEY · EXPO_PUBLIC_GROQ_KEY · EXPO_PUBLIC_GEMINI_KEY · EXPO_PUBLIC_CLAUDE_KEY
+        ⚠️  Backend proxy not configured.{`\n`}
+        Add EXPO_PUBLIC_API_URL to your .env and start the backend:{`\n`}
+        cd backend && npm install && npm start
       </Text>
     </View>
   );
@@ -50,6 +54,7 @@ const bannerStyles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
 
 
 function SuggestedRecipes({ onSelectRecipe }) {

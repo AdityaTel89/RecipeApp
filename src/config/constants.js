@@ -56,48 +56,23 @@ export const RADIUS = {
   tip:        10,
 };
 
-// Groq model configuration (OpenAI-compatible API)
-export const GROQ = {
-  MODEL:       'llama-3.3-70b-versatile',
-  API_URL:     'https://api.groq.com/openai/v1',
-  MAX_TOKENS:  1500,
-  TEMPERATURE: 0.7,
-};
+// Backend proxy URL — the ONLY network target the app talks to.
+// API keys are stored securely in backend/.env, never in this bundle.
+export const BACKEND_URL =
+  (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 
-// Gemini model configuration
-export const GEMINI = {
-  MODEL:       'gemini-1.5-flash',
-  API_URL:     'https://generativelanguage.googleapis.com/v1beta/models',
-  MAX_TOKENS:  1500,
-  TEMPERATURE: 0.7,
-};
+// ─── Provider display metadata (no secrets here) ───────────────────────────
+// Model names are informational only; real config lives in backend/server.js.
 
-// OpenAI model configuration
-export const OPENAI = {
-  MODEL:       'gpt-4o-mini',
-  API_URL:     'https://api.openai.com/v1',
-  MAX_TOKENS:  1500,
-  TEMPERATURE: 0.7,
-};
-
-// Anthropic Claude model configuration
-export const CLAUDE = {
-  MODEL:       'claude-3-haiku-20240307',
-  API_URL:     'https://api.anthropic.com/v1',
-  API_VERSION: '2023-06-01',
-  MAX_TOKENS:  1500,
-};
-
-
-export const PROVIDER_PRIORITY = ['openai', 'groq', 'gemini', 'claude'];
-
-// Human-readable display labels for each provider
 export const PROVIDER_LABELS = {
   openai: 'OpenAI',
   groq:   'Groq',
   gemini: 'Gemini',
   claude: 'Claude',
+  proxy:  'Server',
 };
+
+export const PROVIDER_PRIORITY = ['openai', 'groq', 'gemini', 'claude'];
 
 
 // Input Validation Rules

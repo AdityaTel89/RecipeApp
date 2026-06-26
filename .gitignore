@@ -11,6 +11,10 @@ expo-env.d.ts
 
 .env
 
+# Backend proxy secrets — NEVER commit these
+backend/.env
+backend/node_modules/
+
 # Native
 .kotlin/
 *.orig.*
