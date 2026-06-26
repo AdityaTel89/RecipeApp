@@ -19,11 +19,7 @@ const PRESERVED_MULTI_WORDS = [
   'peanut butter', 'brown sugar', 'garlic powder', 'onion powder', 'chili powder'
 ];
 
-/**
- * Parse input text into ingredient tokens.
- * Handles both comma-separated and space-separated text, while preserving
- * common multi-word pantry items from getting split.
- */
+
 function parseIngredients(text) {
   if (!text || typeof text !== 'string') return [];
 
@@ -77,17 +73,7 @@ function parseIngredients(text) {
   return parsed;
 }
 
-/**
- * IngredientInput — text field with live tag parsing, focus animation,
- * ingredient counter, inline hints, debounced parsing, and shake animation.
- *
- * Props:
- *   onIngredientsChange(ingredients: string[]) — called on every parse
- *   isLoading: boolean
- *   shake: boolean — when toggled to true, triggers the shake animation
- *   ingredients: string[] — controlled ingredients from parent
- *   setIngredients: function — state setter from parent
- */
+
 export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredients, setIngredients }) {
   const [inputValue, setInputValue]     = useState('');
   const [isFocused, setIsFocused]       = useState(false);
@@ -97,9 +83,9 @@ export function IngredientInput({ onIngredientsChange, isLoading, shake, ingredi
   const activeSetIngredients = setIngredients || setLocalIngredients;
 
   const borderColor   = useRef(new Animated.Value(0)).current;
-  const focusLabelOp  = useRef(new Animated.Value(0)).current;  // focus label
-  const shakeAnim     = useRef(new Animated.Value(0)).current;  // shake
-  const debounceTimer = useRef(null);                           // debounce
+  const focusLabelOp  = useRef(new Animated.Value(0)).current;  
+  const shakeAnim     = useRef(new Animated.Value(0)).current;  
+  const debounceTimer = useRef(null);                           
 
   // Sync text input with parent reset
   useEffect(() => {

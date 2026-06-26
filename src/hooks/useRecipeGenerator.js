@@ -1,42 +1,140 @@
 import { useState, useCallback, useRef } from 'react';
-import { fetchRecipeFromGroq } from '../api/groq';
+import { fetchRecipeFromGroq }   from '../api/groq';
 import { fetchRecipeFromGemini } from '../api/gemini';
-import { parseRecipeResponse } from '../utils/recipeParser';
-import { MESSAGES, REQUEST_COOLDOWN_MS } from '../config/constants';
+import { fetchRecipeFromOpenAI } from '../api/openai';
+import { fetchRecipeFromClaude } from '../api/claude';
+import { parseRecipeResponse }   from '../utils/recipeParser';
+import { MESSAGES, REQUEST_COOLDOWN_MS, PROVIDER_PRIORITY, PROVIDER_LABELS } from '../config/constants';
+
+// ─── Provider key detection ───────────────────────────────────────────────────
 
 /**
- * Detects the active provider based on environment configuration.
- * Prioritizes EXPO_PUBLIC_LLM_PROVIDER, then falls back based on key presence.
+ * Returns true if the given provider has an API key configured in the environment.
+ * @param {'openai'|'groq'|'gemini'|'claude'} provider
  */
-export function getActiveProvider() {
-  const envProvider = process.env.EXPO_PUBLIC_LLM_PROVIDER?.toLowerCase()?.trim();
-  if (envProvider === 'gemini') return 'gemini';
-  if (envProvider === 'groq') return 'groq';
-
-  const hasGroqKey = !!(process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY);
-  const hasGeminiKey = !!(process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY);
-
-  if (hasGroqKey) return 'groq';
-  if (hasGeminiKey) return 'gemini';
-  return 'groq'; // default fallback
+function hasKeyForProvider(provider) {
+  switch (provider) {
+    case 'openai':
+      return !!(process.env.EXPO_PUBLIC_OPENAI_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY);
+    case 'groq':
+      return !!(process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY);
+    case 'gemini':
+      return !!(process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+    case 'claude':
+      return !!(process.env.EXPO_PUBLIC_CLAUDE_KEY || process.env.EXPO_PUBLIC_CLAUDE_API_KEY);
+    default:
+      return false;
+  }
 }
 
 /**
- * useRecipeGenerator — the brain of the app.
- *
- * Manages three visual states: 'input' | 'loading' | 'result'
- * Stores lastIngredients for one-tap retry from the error toast.
- *
- * Returns:
- *   appState: 'input' | 'loading' | 'result'
- *   recipe: object | null
- *   error: string | null
- *   isErrorRetryable: boolean
- *   generateRecipe(ingredients: string[]) — main trigger
- *   retryLast() — re-fires the last API call
- *   resetToInput() — clears recipe, goes back to input state
- *   dismissError() — clears the error toast
+ * @returns {string[]} ordered provider names, e.g. ['openai', 'groq']
  */
+export function getConfiguredProviders() {
+  const override = process.env.EXPO_PUBLIC_LLM_PROVIDER?.toLowerCase()?.trim();
+  const validProviders = ['openai', 'groq', 'gemini', 'claude'];
+
+  // Explicit override — lock to that single provider
+  if (override && validProviders.includes(override)) {
+    return [override];
+  }
+
+  // Auto-detect: return all providers with keys, in priority order
+  return PROVIDER_PRIORITY.filter(p => hasKeyForProvider(p));
+}
+
+/**
+ * Legacy single-provider helper kept for components that only need
+ * to know "the primary provider" for display/banner purposes.
+ */
+export function getActiveProvider() {
+  const providers = getConfiguredProviders();
+  return providers.length > 0 ? providers[0] : null;
+}
+
+// ─── Per-provider fetch dispatch ─────────────────────────────────────────────
+
+/**
+ * Calls the appropriate API for the given provider.
+ *
+ * @param {string} provider — one of 'openai' | 'groq' | 'gemini' | 'claude'
+ * @param {string[]} ingredients
+ * @param {number} servings
+ * @returns {Promise<object>} raw recipe JSON from the API
+ */
+async function callProvider(provider, ingredients, servings) {
+  switch (provider) {
+    case 'openai':  return fetchRecipeFromOpenAI(ingredients, servings);
+    case 'groq':    return fetchRecipeFromGroq(ingredients, servings);
+    case 'gemini':  return fetchRecipeFromGemini(ingredients, servings);
+    case 'claude':  return fetchRecipeFromClaude(ingredients, servings);
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
+
+function isHardError(errorMessage) {
+  const msg = errorMessage?.toLowerCase() ?? '';
+  return (
+    msg.includes('invalid') && msg.includes('key') ||
+    msg.includes('api key not configured') ||
+    msg.includes('food ingredient') ||
+    msg.includes('don\'t appear to be food') ||
+    msg.includes('non-food') ||
+    msg.includes('invalid_request_error')
+  );
+}
+
+
+
+/**
+ * @param {string[]} ingredients
+ * @param {number} servings
+ * @returns {Promise<object>} parsed recipe object
+ */
+async function fetchRecipeWithFallback(ingredients, servings) {
+  const providers = getConfiguredProviders();
+
+  if (providers.length === 0) {
+    throw new Error(
+      'No API key configured. Add at least one key to your .env file.\n' +
+      '(EXPO_PUBLIC_OPENAI_KEY, EXPO_PUBLIC_GROQ_KEY, EXPO_PUBLIC_GEMINI_KEY, or EXPO_PUBLIC_CLAUDE_KEY)'
+    );
+  }
+
+  let lastError = null;
+
+  for (const provider of providers) {
+    try {
+      const rawJSON = await callProvider(provider, ingredients, servings);
+      return parseRecipeResponse(rawJSON); // success — return immediately
+    } catch (err) {
+      lastError = err;
+      const msg = err.message ?? '';
+
+      // Hard errors — stop immediately, surface to user
+      if (isHardError(msg)) {
+        throw err;
+      }
+
+      // Soft error — log and try next provider
+      if (__DEV__) {
+        console.warn(`[RecipeApp] Provider "${PROVIDER_LABELS[provider] ?? provider}" failed (${msg}). Trying next…`);
+      }
+      // continue to next iteration
+    }
+  }
+
+  // All providers exhausted
+  if (providers.length > 1) {
+    throw new Error('All configured providers are unavailable. Please wait a moment and try again.');
+  }
+
+  // Single provider failed — surface its own error message
+  throw lastError ?? new Error(MESSAGES.API_ERROR);
+}
+
 export function useRecipeGenerator() {
   const [appState,  setAppState]      = useState('input');
   const [recipe,    setRecipe]        = useState(null);
@@ -53,16 +151,7 @@ export function useRecipeGenerator() {
     setAppState('loading');
 
     try {
-      const provider = getActiveProvider();
-      let rawJSON;
-      
-      if (provider === 'gemini') {
-        rawJSON = await fetchRecipeFromGemini(ingredients, servings);
-      } else {
-        rawJSON = await fetchRecipeFromGroq(ingredients, servings);
-      }
-
-      const parsed = parseRecipeResponse(rawJSON);
+      const parsed = await fetchRecipeWithFallback(ingredients, servings);
 
       if (!parsed) {
         throw new Error(MESSAGES.API_ERROR);
@@ -74,10 +163,14 @@ export function useRecipeGenerator() {
       setAppState('input');
       const msg = err.message ?? MESSAGES.API_ERROR;
       setError(msg);
+
       
-      // Determine if error is retryable (validation/non-food errors are not retryable)
-      const isNonFood = msg === MESSAGES.NON_FOOD || msg.includes('food') || msg.includes('ingredients');
-      setIsRetryable(!isNonFood);
+      const isNonRetryable =
+        isHardError(msg) ||
+        msg === MESSAGES.NON_FOOD ||
+        msg.includes('food') ||
+        msg.includes('No API key configured');
+      setIsRetryable(!isNonRetryable);
     }
   }, []);
 

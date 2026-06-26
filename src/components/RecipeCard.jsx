@@ -15,9 +15,7 @@ import { TipCard } from './TipCard';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-// SVG Icons (no emoji)
 
-/** Clock / timer icon */
 function ClockIcon() {
   return (
     <View style={metaIcon.wrapper}>
@@ -240,15 +238,7 @@ const ingStyles = StyleSheet.create({
   },
 });
 
-// Main RecipeCard
 
-/**
- * RecipeCard — full recipe display with slide-up spring animation.
- *
- * Props:
- *   recipe: object      — parsed recipe from Groq (JSON schema)
- *   onReset: () => void — resets to input state
- */
 export function RecipeCard({ recipe, onReset }) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;

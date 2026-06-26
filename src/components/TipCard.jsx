@@ -1,9 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
-/**
- * Custom SVG lightbulb icon — no emoji.
- */
+
 function LightbulbIcon() {
   return (
     <View style={bulb.wrapper}>
@@ -48,12 +46,7 @@ const bulb = StyleSheet.create({
   },
 });
 
-/**
- * TipCard — Chef's tip block at the bottom of a recipe.
- *
- * Props:
- *   tip: string — the chef's tip text
- */
+
 export function TipCard({ tip }) {
   if (!tip) return null;
 

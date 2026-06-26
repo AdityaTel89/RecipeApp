@@ -1,7 +1,6 @@
-import { GEMINI, MESSAGES, API_TIMEOUT_MS } from '../config/constants';
+import { OPENAI, MESSAGES, API_TIMEOUT_MS } from '../config/constants';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
+const API_KEY = process.env.EXPO_PUBLIC_OPENAI_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
 const SYSTEM_PROMPT = `You are a professional chef and recipe writer. Your job is to create clear, detailed, easy-to-follow recipes based on a list of ingredients a home cook has available.
 
@@ -40,25 +39,24 @@ Follow this JSON schema exactly:
  * @param {number} servings — number of servings requested
  * @returns {Promise<object>} parsed recipe JSON
  */
-export async function fetchRecipeFromGemini(ingredients, servings = 2) {
+export async function fetchRecipeFromOpenAI(ingredients, servings = 2) {
   if (!API_KEY) {
-    throw new Error('Gemini API key not configured. Check your .env file.');
+    throw new Error('OpenAI API key not configured. Add EXPO_PUBLIC_OPENAI_KEY to your .env file.');
   }
 
-  const endpoint = `${GEMINI.API_URL}/${GEMINI.MODEL}:generateContent?key=${API_KEY}`;
+  const endpoint = `${OPENAI.API_URL}/chat/completions`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
   const body = {
-    contents: [{ parts: [{ text: buildUserPrompt(ingredients, servings) }] }],
-    systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT }]
-    },
-    generationConfig: {
-      maxOutputTokens: GEMINI.MAX_TOKENS,
-      temperature:     GEMINI.TEMPERATURE,
-      responseMimeType: "application/json",
-    },
+    model:           OPENAI.MODEL,
+    temperature:     OPENAI.TEMPERATURE,
+    max_tokens:      OPENAI.MAX_TOKENS,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: buildUserPrompt(ingredients, servings) },
+    ],
   };
 
   let response;
@@ -68,7 +66,8 @@ export async function fetchRecipeFromGemini(ingredients, servings = 2) {
       method:  'POST',
       signal:  controller.signal,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(body),
     });
@@ -85,14 +84,14 @@ export async function fetchRecipeFromGemini(ingredients, servings = 2) {
   if (!response.ok) {
     if (response.status === 429) throw new Error(MESSAGES.RATE_LIMIT);
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Invalid API key. Please check your configuration.');
+      throw new Error('Invalid OpenAI API key. Please check your .env configuration.');
     }
     if (response.status >= 500) throw new Error(MESSAGES.API_ERROR);
     throw new Error(MESSAGES.API_ERROR);
   }
 
   const data = await response.json();
-  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const raw = data?.choices?.[0]?.message?.content;
 
   if (!raw) {
     throw new Error(MESSAGES.EMPTY_RESPONSE);

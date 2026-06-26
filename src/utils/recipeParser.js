@@ -1,20 +1,4 @@
-/**
- * Parses and validates the structured JSON recipe returned by Groq.
- *
- * Expected shape:
- * {
- *   title: string,
- *   cook_time: string,
- *   servings: string,
- *   difficulty: string,
- *   ingredients: [{ quantity, unit, name }],
- *   steps: [{ step_number, title, instruction }],
- *   tips: string
- * }
- *
- * Handles graceful fallbacks if fields are missing or the AI
- * returns the non-food error sentinel.
- */
+
 export function parseRecipeResponse(raw) {
   if (!raw || typeof raw !== 'object') {
     return null;

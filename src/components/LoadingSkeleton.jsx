@@ -4,9 +4,7 @@ import { COLORS, SPACING, TYPOGRAPHY, LOADING_MESSAGES, FONTS } from '../config/
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-/**
- * A single shimmer bar — reusable building block.
- */
+
 function ShimmerBar({ width, height = 14, style }) {
   const shimmerAnim = useRef(new Animated.Value(0.4)).current;
 
@@ -43,9 +41,7 @@ function ShimmerBar({ width, height = 14, style }) {
   );
 }
 
-/**
- * AnimatedPan — engaging wobbly sauté pan with rising steam animations.
- */
+
 function AnimatedPan() {
   const tiltAnim   = useRef(new Animated.Value(0)).current;
   const steamAnim1 = useRef(new Animated.Value(0)).current;
@@ -189,12 +185,7 @@ const animPan = StyleSheet.create({
   },
 });
 
-/**
- * LoadingSkeleton — animated skeleton cards + rotating contextual messages.
- *
- * Skeleton shimmer: EDE4D8 → F7F0E8 → EDE4D8, looping.
- * Messages rotate every 2s with fade transition.
- */
+
 export function LoadingSkeleton() {
   const [msgIndex, setMsgIndex] = useState(0);
   const msgOpacity = useRef(new Animated.Value(1)).current;

@@ -3,9 +3,7 @@ import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
-/**
- * Custom SVG × icon for removing a tag.
- */
+
 function RemoveIcon() {
   return (
     <View style={removeIcon.container}>
@@ -37,13 +35,7 @@ const removeIcon = StyleSheet.create({
   },
 });
 
-/**
- * IngredientTag — a single pill tag with spring entrance and tap-to-remove.
- *
- * Props:
- *   label: string       — ingredient name to display
- *   onRemove: () => void — called when × is tapped
- */
+
 export function IngredientTag({ label, onRemove }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
 

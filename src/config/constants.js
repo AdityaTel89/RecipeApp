@@ -72,6 +72,33 @@ export const GEMINI = {
   TEMPERATURE: 0.7,
 };
 
+// OpenAI model configuration
+export const OPENAI = {
+  MODEL:       'gpt-4o-mini',
+  API_URL:     'https://api.openai.com/v1',
+  MAX_TOKENS:  1500,
+  TEMPERATURE: 0.7,
+};
+
+// Anthropic Claude model configuration
+export const CLAUDE = {
+  MODEL:       'claude-3-haiku-20240307',
+  API_URL:     'https://api.anthropic.com/v1',
+  API_VERSION: '2023-06-01',
+  MAX_TOKENS:  1500,
+};
+
+
+export const PROVIDER_PRIORITY = ['openai', 'groq', 'gemini', 'claude'];
+
+// Human-readable display labels for each provider
+export const PROVIDER_LABELS = {
+  openai: 'OpenAI',
+  groq:   'Groq',
+  gemini: 'Gemini',
+  claude: 'Claude',
+};
+
 
 // Input Validation Rules
 export const VALIDATION = {

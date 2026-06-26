@@ -3,9 +3,7 @@ import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, FONTS } from '../config/constants';
 
-/**
- * Custom SVG chef hat icon — no emoji.
- */
+
 function ChefHatIcon({ color = COLORS.textOnAccent }) {
   return (
     <View style={hat.wrapper}>
@@ -62,9 +60,7 @@ const hat = StyleSheet.create({
   },
 });
 
-/**
- * Warning badge dot shown when exactly 1 ingredient is entered.
- */
+
 function WarningBadge() {
   return (
     <View style={badge.wrapper}>

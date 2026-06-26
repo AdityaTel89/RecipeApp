@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useRecipeGenerator, getActiveProvider } from '../hooks/useRecipeGenerator';
+import { useRecipeGenerator, getConfiguredProviders } from '../hooks/useRecipeGenerator';
 import { Header }          from '../components/Header';
 import { IngredientInput } from '../components/IngredientInput';
 import { GenerateButton }  from '../components/GenerateButton';
@@ -20,22 +20,16 @@ import { RecipeCard }      from '../components/RecipeCard';
 import { ErrorToast }      from '../components/ErrorToast';
 import { COLORS, SPACING, FONTS, SUGGESTED_RECIPES } from '../config/constants';
 
-const activeProvider = getActiveProvider();
-const hasKey = activeProvider === 'gemini'
-  ? !!(process.env.EXPO_PUBLIC_GEMINI_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY)
-  : !!(process.env.EXPO_PUBLIC_GROQ_KEY || process.env.EXPO_PUBLIC_GROQ_API_KEY);
-const KEY_MISSING = __DEV__ && !hasKey;
+const configuredProviders = getConfiguredProviders();
+const KEY_MISSING = __DEV__ && configuredProviders.length === 0;
 
-/**
- * Persistent dev-mode banner when API key is not configured.
- * Only visible in development (__DEV__) builds.
- */
-function DevKeyBanner({ provider }) {
-  const keyName = provider === 'gemini' ? 'EXPO_PUBLIC_GEMINI_KEY' : 'EXPO_PUBLIC_GROQ_KEY';
+
+function DevKeyBanner() {
   return (
     <View style={bannerStyles.banner}>
       <Text style={bannerStyles.text}>
-        ⚙️  {provider === 'gemini' ? 'Gemini' : 'Groq'} API key not configured. See .env setup ({keyName}).
+        ⚙️  No API key found. Add one or more to your .env:{`\n`}
+        EXPO_PUBLIC_OPENAI_KEY · EXPO_PUBLIC_GROQ_KEY · EXPO_PUBLIC_GEMINI_KEY · EXPO_PUBLIC_CLAUDE_KEY
       </Text>
     </View>
   );
@@ -57,9 +51,7 @@ const bannerStyles = StyleSheet.create({
   },
 });
 
-/**
- * SuggestedRecipes — list of predefined recipes for instant access.
- */
+
 function SuggestedRecipes({ onSelectRecipe }) {
   return (
     <View style={sugStyles.container}>
@@ -175,9 +167,7 @@ const sugStyles = StyleSheet.create({
   },
 });
 
-/**
- * ServingsSelector — premium one-tap circular segment selector for serving sizes 1-8.
- */
+
 function ServingsSelector({ servings, onChange }) {
   const options = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -271,12 +261,7 @@ const servStyles = StyleSheet.create({
   },
 });
 
-/**
- * HomeScreen — single screen, three visual states:
- *   'input'   → Header + IngredientInput + GenerateButton
- *   'loading' transition -> LoadingSkeleton
- *   'result'  → RecipeCard (full screen, scrollable)
- */
+
 export function HomeScreen() {
   const {
     appState,
@@ -302,6 +287,26 @@ export function HomeScreen() {
   // Fade animators for state transitions
   const inputFade    = useRef(new Animated.Value(1)).current;
   const skeletonFade = useRef(new Animated.Value(0)).current;
+
+  // Track previous appState so we can detect the loading → input error transition
+  const prevAppStateRef = useRef(appState);
+
+
+  useEffect(() => {
+    if (prevAppStateRef.current === 'loading' && appState === 'input') {
+      Animated.timing(inputFade, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(skeletonFade, {
+        toValue: 0,
+        duration: 100,
+        useNativeDriver: true,
+      }).start();
+    }
+    prevAppStateRef.current = appState;
+  }, [appState, inputFade, skeletonFade]);
 
   const handleIngredientsChange = useCallback((parsed) => {
     setIngredients(parsed);
@@ -331,6 +336,15 @@ export function HomeScreen() {
     generateRecipe(ingredients, servings);
   }, [ingredients, servings, generateRecipe, inputFade, skeletonFade]);
 
+
+  const handleDismissError = useCallback(() => {
+    if (!isErrorRetryable) {
+      // Clear the bad ingredients — user needs to start fresh
+      setIngredients([]);
+    }
+    dismissError();
+  }, [isErrorRetryable, dismissError]);
+
   const handleReset = useCallback(() => {
     // Restore input fade
     Animated.timing(inputFade, {
@@ -359,7 +373,7 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       {/* Dev-mode API key missing persistent banner */}
-      {KEY_MISSING ? <DevKeyBanner provider={activeProvider} /> : null}
+      {KEY_MISSING ? <DevKeyBanner /> : null}
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -370,7 +384,7 @@ export function HomeScreen() {
         {error ? (
           <ErrorToast
             message={error}
-            onDismiss={dismissError}
+            onDismiss={handleDismissError}
             onRetry={isErrorRetryable ? retryLast : null}
           />
         ) : null}

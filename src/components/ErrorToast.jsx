@@ -12,9 +12,6 @@ import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-/**
- * Custom SVG warning triangle icon.
- */
 function WarningIcon() {
   return (
     <View style={warnIcon.wrapper}>
@@ -60,9 +57,7 @@ const warnIcon = StyleSheet.create({
   },
 });
 
-/**
- * Custom SVG × dismiss icon.
- */
+
 function CloseIcon() {
   return (
     <View style={closeIcon.wrapper}>

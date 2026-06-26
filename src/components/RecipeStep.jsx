@@ -1,14 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
-/**
- * RecipeStep — a single numbered cooking step.
- *
- * Props:
- *   stepNumber: number  — 1-indexed step number
- *   title: string       — short step title (e.g. "Prepare the rice")
- *   instruction: string — full 2–5 sentence instruction body
- */
+
 export function RecipeStep({ stepNumber, title, instruction }) {
   return (
     <View

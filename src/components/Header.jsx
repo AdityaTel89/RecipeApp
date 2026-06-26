@@ -1,10 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, FONTS } from '../config/constants';
 
-/**
- * Custom SVG pan icon rendered via React Native's View primitives.
- * No emoji, no external icon library.
- */
+
 function PanIcon() {
   return (
     <View style={icon.wrapper}>
@@ -20,9 +17,7 @@ function PanIcon() {
   );
 }
 
-/**
- * Header — app name, tagline, and custom pan SVG.
- */
+
 export function Header() {
   return (
     <View style={styles.container}>
