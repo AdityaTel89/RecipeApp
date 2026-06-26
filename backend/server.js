@@ -52,7 +52,7 @@ const PROVIDERS = {
   },
 };
 
-const API_TIMEOUT_MS = 20_000; // 20 s — slightly more generous server-side
+const API_TIMEOUT_MS = 30_000; 
 
 // ─── Shared Prompts ───────────────────────────────────────────────────────────
 
@@ -88,11 +88,6 @@ Follow this JSON schema exactly:
 }`;
 }
 
-// ─── Provider Callers ─────────────────────────────────────────────────────────
-
-/**
- * Calls the Groq (OpenAI-compatible) API.
- */
 async function callGroq(ingredients, servings) {
   const cfg = PROVIDERS.groq;
   const body = {
@@ -120,9 +115,7 @@ async function callGroq(ingredients, servings) {
   return extractAndParse(data?.choices?.[0]?.message?.content, 'Groq');
 }
 
-/**
- * Calls the Google Gemini API.
- */
+
 async function callGemini(ingredients, servings) {
   const cfg = PROVIDERS.gemini;
   const url = `${cfg.apiUrl}/${cfg.model}:generateContent?key=${KEYS.gemini}`;
@@ -147,9 +140,6 @@ async function callGemini(ingredients, servings) {
   return extractAndParse(data?.candidates?.[0]?.content?.parts?.[0]?.text, 'Gemini');
 }
 
-/**
- * Calls the OpenAI API.
- */
 async function callOpenAI(ingredients, servings) {
   const cfg = PROVIDERS.openai;
   const body = {
@@ -177,9 +167,6 @@ async function callOpenAI(ingredients, servings) {
   return extractAndParse(data?.choices?.[0]?.message?.content, 'OpenAI');
 }
 
-/**
- * Calls the Anthropic Claude API.
- */
 async function callClaude(ingredients, servings) {
   const cfg = PROVIDERS.claude;
   const body = {
@@ -211,11 +198,6 @@ async function callClaude(ingredients, servings) {
   return extractAndParse(clean, 'Claude');
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * fetch() with an AbortController-based timeout.
- */
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -226,9 +208,6 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
-/**
- * Throws a standardised error if the upstream response is not 2xx.
- */
 async function assertOk(res, providerName) {
   if (res.ok) return;
 
@@ -243,9 +222,6 @@ async function assertOk(res, providerName) {
   throw new ProviderError('upstream', providerName, detail || `HTTP ${res.status}`);
 }
 
-/**
- * Parse a raw JSON string from the LLM; throw a structured error on failure.
- */
 function extractAndParse(raw, providerName) {
   if (!raw) throw new ProviderError('empty', providerName, 'Empty response body');
   try {
@@ -268,8 +244,6 @@ class ProviderError extends Error {
   }
 }
 
-// ─── Fallback Logic ───────────────────────────────────────────────────────────
-
 const PROVIDER_ORDER = ['groq', 'gemini', 'openai', 'claude'];
 
 const CALLERS = {
@@ -279,9 +253,7 @@ const CALLERS = {
   claude: callClaude,
 };
 
-/**
- * Returns providers that have a non-empty API key.
- */
+
 function configuredProviders(requestedProvider) {
   if (requestedProvider && CALLERS[requestedProvider]) {
     // Honour an explicit provider if the key exists; otherwise fall back to auto
@@ -290,10 +262,7 @@ function configuredProviders(requestedProvider) {
   return PROVIDER_ORDER.filter(p => KEYS[p]);
 }
 
-/**
- * Try each configured provider in order, returning on the first success.
- * Hard errors (auth, food-ingredient validation) stop the chain immediately.
- */
+
 async function generateRecipeWithFallback(ingredients, servings, requestedProvider) {
   const providers = configuredProviders(requestedProvider);
 
@@ -332,7 +301,6 @@ async function generateRecipeWithFallback(ingredients, servings, requestedProvid
   throw lastError ?? new Error('All providers failed');
 }
 
-// ─── Express App ──────────────────────────────────────────────────────────────
 
 const app = express();
 
@@ -363,12 +331,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
 
-/**
- * GET /api/health
- * Returns server status and which providers are configured (keys present).
- */
 app.get('/api/health', (_req, res) => {
   res.json({
     status:    'ok',
@@ -377,11 +340,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-/**
- * POST /api/recipe
- * Body: { ingredients: string[], servings: number, provider?: string }
- * Returns: { recipe: RecipeObject, provider: string }
- */
+
 app.post('/api/recipe', async (req, res) => {
   const { ingredients, servings = 2, provider: requestedProvider } = req.body ?? {};
 

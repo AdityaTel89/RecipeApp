@@ -2,7 +2,7 @@
 
 A premium single-screen React Native (Expo) mobile app that generates detailed, professional recipes from ingredients you already have in your kitchen — powered by your choice of **OpenAI, Groq, Google Gemini, or Anthropic Claude**.
 
-Configure one or more API keys and the app automatically picks the best available provider, with silent failover if one hits its rate limit.
+All LLM API calls are made through a **secure Node.js backend proxy**. No API keys are ever embedded in the app bundle.
 
 Built with performance, premium UX/UI, and accessibility at its core.
 
@@ -10,16 +10,18 @@ Built with performance, premium UX/UI, and accessibility at its core.
 
 ## 🌟 Key Features
 
-*   **Multi-LLM Support:** Works with OpenAI (GPT-4o mini), Groq (Llama 3.3 70B), Google Gemini (1.5 Flash), and Anthropic Claude (Haiku). Add any combination of keys and the app handles the rest.
-*   **Smart Auto-Failover:** When multiple API keys are configured, the app tries providers in priority order. If one hits a rate limit or server error, it silently retries with the next available provider — no interruption to the user.
+*   **Multi-LLM Support:** Works with OpenAI (GPT-4o mini), Groq (Llama 3.3 70B), Google Gemini (1.5 Flash), and Anthropic Claude (Haiku). Add any combination of keys and the backend handles the rest.
+*   **Secure Backend Proxy:** A dedicated Express.js server holds all API keys. The mobile app never touches LLM providers directly — zero credentials in the client bundle.
+*   **Smart Auto-Failover:** When multiple API keys are configured on the server, it tries providers in priority order. If one hits a rate limit or server error, it silently retries with the next — no interruption to the user.
+*   **Server-Side Rate Limiting:** 30 requests per 15 minutes per IP, enforced by `express-rate-limit` on the backend.
 *   **Smart Ingredient Parsing:** Enter ingredients using commas (or spaces). The app automatically parses, de-duplicates, and displays them as animated pill tags.
 *   **Pantry Staples Quick Add:** Frequently used kitchen staples (eggs, onion, pasta, cheese, etc.) can be toggled with a single tap to speed up input.
 *   **Serving Size Selector:** Scale recipes dynamically. Select serving sizes from 1 to 8, and the AI adjusts quantities and instructions accordingly.
-*   **Predefined Instant Recipes:** Access 3 high-quality predefined recipes immediately without waiting for API generation — works offline with no API key.
+*   **Predefined Instant Recipes:** Access 3 high-quality predefined recipes immediately without waiting for API generation — works offline.
 *   **Warm Kitchen UI Design:** Tailored design system built on parchment colors, spice-orange accents, serif headings (`Playfair Display`), and clean body text (`Inter`).
 *   **Polished Loading Experience:** Custom wobbly pan animation with rising steam and shimmering skeleton placeholders that transition every 2 seconds.
-*   **Detailed Structured Recipes:** Generates a structured JSON recipe with cook times, servings, difficulty level, bolded ingredient quantities, 8–12 detailed steps explaining the "why", and a specialized chef's tip card.
-*   **Robust Edge-Case Handling:** Client-side 15-second timeout via `AbortController`, network detection, rate limit (429) warnings, character caps, and direct "Retry" controls inside notification banners.
+*   **Detailed Structured Recipes:** Generates a structured JSON recipe with cook times, servings, difficulty level, bolded ingredient quantities, 8–12 detailed steps explaining the "why", and a chef's tip card.
+*   **Robust Edge-Case Handling:** Client-side timeout via `AbortController`, network detection, rate limit warnings, character caps, and direct "Retry" controls inside notification banners.
 *   **Haptic Feedback:** Interactive touches enhanced by light/heavy haptics using `expo-haptics`.
 *   **Accessibility First:** Fully optimized with semantic labels, accessible live regions, tap targets, and support for system font scaling.
 
@@ -27,12 +29,16 @@ Built with performance, premium UX/UI, and accessibility at its core.
 
 ## 🛠️ Tech Stack
 
-*   **Framework:** React Native + Expo (SDK 54)
-*   **Styling:** StyleSheet (Vanilla RN approach)
-*   **AI Providers:** OpenAI · Groq · Google Gemini · Anthropic Claude
-*   **Typography:** Google Fonts (`Playfair Display` + `Inter`) via `@expo-google-fonts`
-*   **Haptics:** `expo-haptics`
-*   **Safe Area:** `react-native-safe-area-context`
+| Layer | Technology |
+|---|---|
+| **Mobile App** | React Native + Expo (SDK 54) |
+| **Backend Proxy** | Node.js + Express.js |
+| **Security** | `helmet`, `cors`, `express-rate-limit` |
+| **Styling** | StyleSheet (Vanilla RN) |
+| **AI Providers** | OpenAI · Groq · Google Gemini · Anthropic Claude |
+| **Typography** | `Playfair Display` + `Inter` via `@expo-google-fonts` |
+| **Haptics** | `expo-haptics` |
+| **Safe Area** | `react-native-safe-area-context` |
 
 ---
 
@@ -45,7 +51,7 @@ Built with performance, premium UX/UI, and accessibility at its core.
 | **Google Gemini** | `gemini-1.5-flash` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **Anthropic Claude** | `claude-3-haiku-20240307` | [console.anthropic.com/settings/api-keys](https://console.anthropic.com/settings/api-keys) |
 
-**You only need one key to use the app.** Adding multiple keys enables automatic failover.
+**You only need one key to use the app.** Adding multiple keys enables automatic server-side failover.
 
 ---
 
@@ -53,63 +59,128 @@ Built with performance, premium UX/UI, and accessibility at its core.
 
 ### Prerequisites
 
-Make sure you have the following installed:
-*   [Node.js](https://nodejs.org/) (v18 or higher recommended)
+*   [Node.js](https://nodejs.org/) (v18 or higher)
 *   [Git](https://git-scm.com/)
 *   At least one API key from the table above
-*   A physical device with the [Expo Go](https://expo.dev/go) app, or an emulator (Xcode Simulator / Android Studio Emulator)
+*   A physical device with [Expo Go](https://expo.dev/go), or an emulator (Xcode Simulator / Android Studio)
 
-### Step-by-Step Installation
+---
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/AdityaTel89/RecipeApp.git
-    cd RecipeApp
-    ```
+### Step 1 — Clone & Install
 
-2.  **Install Dependencies:**
-    ```bash
-    npm install
-    ```
+```bash
+git clone https://github.com/AdityaTel89/RecipeApp.git
+cd RecipeApp
+```
 
-3.  **Configure Environment Variables:**
-    Copy `.env.example` to `.env` and add at least one API key:
-    ```bash
-    cp .env.example .env
-    ```
+Install Expo app dependencies:
+```bash
+npm install
+```
 
-    Edit `.env`:
-    ```env
-    # Add one or more — the app uses all configured keys with auto-failover
+Install backend proxy dependencies:
+```bash
+cd backend
+npm install
+cd ..
+```
 
-    EXPO_PUBLIC_OPENAI_KEY=your_openai_api_key_here
-    EXPO_PUBLIC_GROQ_KEY=your_groq_api_key_here
-    EXPO_PUBLIC_GEMINI_KEY=your_gemini_api_key_here
-    EXPO_PUBLIC_CLAUDE_KEY=your_claude_api_key_here
+---
 
-    # Optional: force a specific provider (openai | groq | gemini | claude)
-    # EXPO_PUBLIC_LLM_PROVIDER=groq
-    ```
+### Step 2 — Configure the Backend
 
-    > [!IMPORTANT]
-    > At least one API key must be set. The app will show an error banner in dev mode and fail gracefully on generation if no keys are configured.
+Copy the backend env template and add your API keys:
+```bash
+cp backend/.env.example backend/.env
+```
 
-4.  **Start the Expo Development Server:**
-    ```bash
-    npm run start        # Standard start — scan QR with Expo Go
-    npm run android      # Launch on Android emulator directly
-    npm run ios          # Launch on iOS simulator directly
-    ```
+Edit `backend/.env`:
+```env
+# Add one or more keys — the server uses all configured keys with auto-failover
 
-5.  **Run on Your Device:**
-    *   **iOS/Android (Expo Go):** Scan the QR code in your terminal with your phone camera (iOS) or the Expo Go app (Android).
-    *   **Emulator:** Press `i` for iOS Simulator or `a` for Android Emulator in the terminal.
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+CLAUDE_API_KEY=your_claude_api_key_here
+
+PORT=3001
+
+# Origins allowed to call the proxy (Expo dev server addresses)
+ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006,http://YOUR-LAN-IP:8081
+```
+
+> [!IMPORTANT]
+> `backend/.env` is gitignored and **never committed**. Your keys stay on your machine only.
+
+---
+
+### Step 3 — Configure the Expo App
+
+Copy the app env template:
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```env
+# Point the app at your local backend proxy
+EXPO_PUBLIC_API_URL=http://localhost:3001
+```
+
+> [!IMPORTANT]
+> **Physical device or Android Emulator?** Replace `localhost` with your computer's LAN IP address.
+> Run `ipconfig` (Windows) or `ifconfig` (macOS/Linux) to find it.
+> ```env
+> EXPO_PUBLIC_API_URL=http://192.168.1.x:3001
+> ```
+> Also add that IP to `ALLOWED_ORIGINS` in `backend/.env`.
+
+| Device type | URL to use |
+|---|---|
+| iOS Simulator (same Mac) | `http://localhost:3001` |
+| Android Emulator | `http://10.0.2.2:3001` |
+| Physical device (Wi-Fi) | `http://<your-computer-LAN-IP>:3001` |
+
+---
+
+### Step 4 — Start the Backend Proxy
+
+Open a dedicated terminal and run:
+```bash
+cd backend
+npm start
+```
+
+You should see:
+```
+🍳  RecipeApp Proxy running
+   Local:             http://localhost:3001
+   On your network:   http://<your-LAN-IP>:3001
+   Configured providers: groq, gemini
+   Rate limit:           30 req / 15 min per IP
+```
+
+> For development with auto-restart on file changes:
+> ```bash
+> npm run dev
+> ```
+
+---
+
+### Step 5 — Start the Expo App
+
+In a **second terminal**:
+```bash
+npm run start        # Scan QR code with Expo Go
+npm run android      # Launch on Android emulator
+npm run ios          # Launch on iOS simulator
+```
 
 ---
 
 ## ⚙️ Provider Priority & Failover
 
-When multiple API keys are configured, the app tries providers in this order:
+When multiple API keys are configured in `backend/.env`, the server tries providers in this order:
 
 ```
 OpenAI → Groq → Gemini → Claude
@@ -117,14 +188,9 @@ OpenAI → Groq → Gemini → Claude
 
 **Failover rules:**
 - **Rate limit (429) or server error (5xx):** Silently skip to the next provider.
-- **Invalid key (401/403):** Surface an error immediately — no failover attempted (avoids burning quota on other providers for an auth problem).
+- **Invalid key (401/403):** Surface an error immediately — no failover (avoids burning quota on other providers for an auth problem).
 - **Non-food ingredients:** Error surfaced immediately, no failover.
 - **All providers exhausted:** Clear error shown to the user.
-
-To lock the app to a single provider regardless of which keys exist, set:
-```env
-EXPO_PUBLIC_LLM_PROVIDER=groq
-```
 
 ---
 
@@ -132,84 +198,70 @@ EXPO_PUBLIC_LLM_PROVIDER=groq
 
 ```
 RecipeApp/
-├── .env                        # API key configurations (gitignored — never committed)
-├── .env.example                # Template for environment variables
-├── App.js                      # Root entry component, loads fonts and providers
-├── app.json                    # Expo configuration
-├── package.json                # Dependencies and scripts
+├── .env                          # Expo app env — proxy URL only (gitignored)
+├── .env.example                  # Template for Expo app env vars
+├── App.js                        # Root entry component, loads fonts
+├── app.json                      # Expo configuration
+├── package.json                  # Expo app dependencies & scripts
+│
+├── backend/                      # ← Secure backend proxy server
+│   ├── .env                      # API keys — NEVER committed (gitignored)
+│   ├── .env.example              # Template for backend env vars
+│   ├── package.json              # Backend dependencies (express, helmet, etc.)
+│   └── server.js                 # Express proxy — all LLM calls happen here
+│
 └── src/
     ├── api/
-    │   ├── openai.js           # OpenAI GPT-4o mini integration
-    │   ├── groq.js             # Groq Llama 3.3 70B integration
-    │   ├── gemini.js           # Google Gemini 1.5 Flash integration
-    │   └── claude.js           # Anthropic Claude Haiku integration
+    │   └── recipeApi.js          # Thin client — calls backend proxy, no keys
     ├── components/
-    │   ├── Header.jsx          # Branding header with custom SVG kitchen pan
-    │   ├── IngredientInput.jsx # Text field, live parsing, counter, quick-add staples
-    │   ├── IngredientTag.jsx   # Individual pill tag with spring entrance and close action
-    │   ├── GenerateButton.jsx  # Primary CTA button with haptics and warning badge
-    │   ├── LoadingSkeleton.jsx # Shimmer bars, wobbly pan animation, rotating phrases
-    │   ├── RecipeCard.jsx      # Scrollable recipe display card with meta row & refresh
-    │   ├── RecipeStep.jsx      # Individual numbered recipe step
-    │   ├── ErrorToast.jsx      # Floating dismissible top toast with Retry logic
-    │   └── TipCard.jsx         # Chef's tip highlighted card
+    │   ├── Header.jsx            # Branding header with custom SVG kitchen pan
+    │   ├── IngredientInput.jsx   # Text field, live parsing, counter, quick-add staples
+    │   ├── IngredientTag.jsx     # Individual pill tag with spring entrance and close action
+    │   ├── GenerateButton.jsx    # Primary CTA button with haptics and warning badge
+    │   ├── LoadingSkeleton.jsx   # Shimmer bars, wobbly pan animation, rotating phrases
+    │   ├── RecipeCard.jsx        # Scrollable recipe display card with meta row & refresh
+    │   ├── RecipeStep.jsx        # Individual numbered recipe step
+    │   ├── ErrorToast.jsx        # Floating dismissible top toast with Retry logic
+    │   └── TipCard.jsx           # Chef's tip highlighted card
     ├── config/
-    │   └── constants.js        # Color tokens, typography, API configs, provider priority
+    │   └── constants.js          # Color tokens, typography, UI constants
     ├── hooks/
-    │   └── useRecipeGenerator.js  # Core state machine + multi-provider failover orchestrator
+    │   └── useRecipeGenerator.js # Core state machine — calls proxy, handles errors
     ├── screens/
-    │   └── HomeScreen.jsx      # State router & layout container
+    │   └── HomeScreen.jsx        # State router & layout container
     └── utils/
-        └── recipeParser.js     # Sanitizes and normalizes LLM JSON output with fallbacks
+        └── recipeParser.js       # Sanitizes and normalizes LLM JSON output
 ```
 
 ---
 
-## ⚙️ Architecture & Data Flow
+## 🔐 Architecture & Security
 
-```mermaid
-graph TD
-    User([User]) -->|Inputs ingredients| Input[IngredientInput.jsx]
-    Input -->|Parsed ingredient list| StateHook[useRecipeGenerator.js]
-    User -->|Taps Generate| StateHook
-
-    StateHook -->|State: loading| Screen[HomeScreen.jsx]
-    StateHook -->|fetchRecipeWithFallback| Router{Provider Router}
-
-    Router -->|Priority 1| OpenAI[api/openai.js]
-    Router -->|Priority 2| Groq[api/groq.js]
-    Router -->|Priority 3| Gemini[api/gemini.js]
-    Router -->|Priority 4| Claude[api/claude.js]
-
-    OpenAI -->|429 / 5xx| Router
-    Groq -->|429 / 5xx| Router
-
-    OpenAI -->|Success| Parser[utils/recipeParser.js]
-    Groq -->|Success| Parser
-    Gemini -->|Success| Parser
-    Claude -->|Success| Parser
-
-    Parser -->|Structured recipe object| StateHook
-    StateHook -->|State: result| Screen
-    Screen -->|Renders| Card[RecipeCard.jsx]
-    Card -->|Cook Something Else| StateHook
-    StateHook -->|State: input| Screen
+```
+┌─────────────────────────────────────────────────────┐
+│                  Expo Mobile App                    │
+│                                                     │
+│  src/api/recipeApi.js                               │
+│  POST /api/recipe { ingredients, servings }         │
+│  ← No API keys anywhere in this bundle →            │
+└────────────────────────┬────────────────────────────┘
+                         │ HTTP (localhost / LAN)
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│            backend/server.js  (Node.js)             │
+│                                                     │
+│  ✅ helmet        — security HTTP headers           │
+│  ✅ cors          — whitelist-only origins          │
+│  ✅ rate-limit    — 30 req / 15 min / IP            │
+│  ✅ input validation — sanitised before LLM call    │
+│  ✅ API keys      — loaded from backend/.env only   │
+│                                                     │
+│  Fallback chain:  Groq → Gemini → OpenAI → Claude  │
+└───┬──────────┬────────────┬──────────────┬──────────┘
+    ▼          ▼            ▼              ▼
+  Groq      Gemini       OpenAI         Claude
 ```
 
----
-
-## 🔒 Security Notes
-
-> [!WARNING]
-> **API keys are embedded in the client bundle.** Environment variables prefixed with `EXPO_PUBLIC_` are bundled into the compiled JavaScript and can be extracted from a built app. This is fine for personal projects and portfolios, but **do not use production-level keys with high spending limits in a publicly distributed app.**
-
-**For production / public distribution:**
-
-1.  **Use a backend proxy:** Host a simple server (Node.js, Vercel function, etc.) that holds the API key securely. Your app calls your server, your server calls the LLM provider.
-2.  **Add server-side rate limiting:** Protect your API budget from quota exhaustion.
-3.  **Use low-limit keys:** Create dedicated API keys with strict spend caps for client-side use.
-
----
 
 ## 📄 License
 

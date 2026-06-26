@@ -4,12 +4,7 @@ import { parseRecipeResponse }  from '../utils/recipeParser';
 import { MESSAGES, REQUEST_COOLDOWN_MS } from '../config/constants';
 
 
-// ─── Hard-error classifier ─────────────────────────────────────────────────────
 
-/**
- * Returns true for errors that should NOT trigger a retry prompt.
- * (e.g. bad ingredients, missing server config, validation errors)
- */
 function isHardError(message) {
   const msg = message?.toLowerCase() ?? '';
   return (
@@ -21,27 +16,12 @@ function isHardError(message) {
   );
 }
 
-
-// ─── Active provider helpers ───────────────────────────────────────────────────
-
-/**
- * Returns the primary provider reported by the last successful response,
- * or null before the first request.
- *
- * We keep a module-level ref so other components can read it without
- * going through React state.
- */
 let _lastProvider = null;
 
 export function getActiveProvider() {
   return _lastProvider;
 }
 
-/**
- * We no longer detect providers client-side (API keys live on the server).
- * This helper is kept for backwards-compat with any banner/UI code that
- * calls it; it always indicates the proxy is the "source".
- */
 export function getConfiguredProviders() {
   return ['proxy'];
 }

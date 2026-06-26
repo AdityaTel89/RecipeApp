@@ -65,9 +65,6 @@ export async function fetchRecipeFromProxy(ingredients, servings = 2, provider) 
 }
 
 /**
- * GET /api/health
- *
- * Returns server health status and which providers are currently configured.
  * @returns {Promise<{ status: string, providers: string[], timestamp: string }>}
  */
 export async function fetchServerHealth() {
